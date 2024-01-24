@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Queue {
+  id                Int       @id @default(autoincrement())
+  musicID           String    
+  title             String
+  artist            String
+  thumbnail         String
+  album             String?
+  year              String?
+  duration          String
+  duration_second   Int       @default(0)
+  total_play        String
+  playedAt          DateTime?
+  finishedAt        DateTime?
+  isPlaying         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+}
+
+model SearchResult {
+  id                Int       @id @default(autoincrement())
+  musicID           String    @unique
+  title             String
+  artist            String
+  thumbnail         String
+  album             String?
+  duration          String
+  duration_second   Int       @default(0)
+  total_play        String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now())
+}
