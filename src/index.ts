@@ -5,7 +5,7 @@ import puppeteer from "puppeteer-extra";
 // import search from "./search";
 import { GetCurrentPlaying, Play, PlayFromHome } from "./player";
 // const puppeteer = require('puppeteer-core');
-import { Context, Markup, Telegraf } from "telegraf";
+import { Markup, Telegraf } from "telegraf";
 // import YTMusic from "ytmusic-api";
 
 import { PrismaClient, Queue } from "@prisma/client";
@@ -32,7 +32,8 @@ import { InlineQueryResult } from "telegraf/typings/core/types/typegram";
 import {
   addQueue,
   getQueue,
-  playNext,
+  getQueues,
+  addToPlayNext,
   updateFinished,
   updateIsPlaying,
   updatePlayedAt,
@@ -229,7 +230,7 @@ import { MonitorDOMTextContent } from "./page";
       return;
     }
 
-    PlayQueue(ctx, true);
+    PlayQueue(true);
   });
 
   bot.command("fixplayer", async () => {
@@ -242,11 +243,15 @@ import { MonitorDOMTextContent } from "./page";
     }
   });
 
-  const PlayQueue = async (ctx: Context, play: boolean) => {
+  const sendMessage = async (message) => {
+    return bot.telegram.sendMessage(233041497, message);
+  };
+
+  const PlayQueue = async (play: boolean) => {
     console.log("PlayQueue");
     console.log("playerPage.isClosed()", playerPage.isClosed());
     if (playerPage.isClosed()) {
-      console.log("PlayQueue new tab");
+      console.log("PlayQueue open new tab");
       playerPage = await browser.newPage();
     }
 
@@ -269,10 +274,13 @@ import { MonitorDOMTextContent } from "./page";
     console.log(
       `PlayQueue Playing ${currentQueue.title} by ${currentQueue.artist}`,
     );
-    await ctx.reply(`Playing ${currentQueue.title} by ${currentQueue.artist}`);
+    await sendMessage(
+      `Playing ${currentQueue.title} by ${currentQueue.artist}`,
+    );
+    // await ctx.reply(`Playing ${currentQueue.title} by ${currentQueue.artist}`);
 
     // on ending music
-    console.log("PlayQueue monitoring dom");
+    console.log("PlayQueue: monitoring dom");
     if (!isWatchingDOM) {
       isWatchingDOM = true;
       // await playerPage.waitForSelector(".ytmusic-player-bar .title");
@@ -281,12 +289,16 @@ import { MonitorDOMTextContent } from "./page";
         // ".thumbnail-image-wrapper.ytmusic-player-bar img",
         ".ytmusic-player-bar .title",
         async (newTitle) => {
-          console.log("change!!!!");
+          if (playerPage.isClosed()) {
+            return;
+          }
+
+          console.log("MonitorDOMTextContent: change!!!!");
 
           // const newSong = await newElement?.evaluate((e) => e.textContent);
-          console.log("newTitle", newTitle);
+          console.log("MonitorDOMTextContent: newTitle", newTitle);
 
-          console.log("PlayQueue end duration");
+          console.log("MonitorDOMTextContent: end duration");
           // set finish
           if (currentQueue.id > 0) {
             await updateFinished(prisma, currentQueue);
@@ -295,14 +307,11 @@ import { MonitorDOMTextContent } from "./page";
           // pause
           // await playerPage.keyboard.press("Space");
 
-          console.log("PlayQueue get next queue");
+          console.log("MonitorDOMTextContent: get next queue");
           // get next queue
           const [nextExist, nextQueue] = await getQueue(prisma);
           if (nextExist && nextQueue !== null) {
-            console.log("PlayQueue next queue exist");
-            // close tab
-            await playerPage.close();
-
+            console.log("MonitorDOMTextContent: next queue exist");
             // not watching anymore
             isWatchingDOM = false;
 
@@ -312,17 +321,22 @@ import { MonitorDOMTextContent } from "./page";
             // assign current queue
             currentQueue = nextQueue;
 
+            if (!playerPage.isClosed()) {
+              // close tab
+              await playerPage.close();
+            }
+
             // running
-            await PlayQueue(ctx, true);
+            await PlayQueue(true);
           } else {
-            console.log("PlayQueue no next queue -> playing auto");
+            console.log("MonitorDOMTextContent: no next queue -> playing auto");
 
             // change current play
             currentQueue = await GetCurrentPlaying(playerPage);
 
             // resume
             // await playerPage.keyboard.press("Space");
-            await PlayQueue(ctx, false);
+            await PlayQueue(false);
           }
         },
         null,
@@ -363,8 +377,6 @@ import { MonitorDOMTextContent } from "./page";
     const [nextExist, nextQueue] = await getQueue(prisma);
     if (nextExist && nextQueue !== null) {
       console.log("Next: next queue exist");
-      // close tab
-      await playerPage.close();
 
       // not watching anymore
       isWatchingDOM = false;
@@ -375,8 +387,14 @@ import { MonitorDOMTextContent } from "./page";
       // assign current queue
       currentQueue = nextQueue;
 
+      // close tab
+      if (!playerPage.isClosed()) {
+        // close tab
+        await playerPage.close();
+      }
+
       // running
-      await PlayQueue(ctx, true);
+      await PlayQueue(true);
     } else {
       console.log("Next: no next queue -> playing auto");
 
@@ -395,6 +413,24 @@ import { MonitorDOMTextContent } from "./page";
   bot.command("trending", async (ctx) => {
     PlayFromHome(playerPage, "TRENDING");
     ctx.reply("Playing from trending");
+  });
+
+  bot.command("queue", async (ctx) => {
+    const queues = await getQueues(prisma);
+    if (queues.length > 0) {
+      await ctx.reply(
+        queues
+          .map((row, i) => {
+            return `${i + 1}. ${row.title} - ${row.artist}`;
+          })
+          .join("\n"),
+        {
+          parse_mode: "Markdown",
+        },
+      );
+    } else {
+      ctx.reply("No queue");
+    }
   });
 
   // let isSeaching: boolean = false;
@@ -484,7 +520,7 @@ import { MonitorDOMTextContent } from "./page";
       const sr = await getSearchResult(prisma, musicID);
       // console.log("sr", sr);
       if (sr !== false) {
-        playNext(prisma, sr);
+        addToPlayNext(prisma, sr);
       }
     }
   });
@@ -494,7 +530,7 @@ import { MonitorDOMTextContent } from "./page";
     await ctx.editMessageReplyMarkup(undefined);
 
     const musicID: string = ctx.match.input.split("add-to-queue-")[1] || "";
-    // console.log("musicID", musicID);
+    // console.log("add-to-queue-", musicID);
     if (musicID) {
       const sr = await getSearchResult(prisma, musicID);
       // console.log("sr", sr);

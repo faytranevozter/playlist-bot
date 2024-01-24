@@ -1,4 +1,5 @@
 import { PrismaClient, Queue, SearchResult } from "@prisma/client";
+import dayjs, { type Dayjs } from "dayjs";
 // import getYouTubeID from "get-youtube-id";
 // import { YoutubeMeta, getYoutubeMeta } from "./util/youtube";
 
@@ -12,7 +13,7 @@ export const addQueue = async (
   const resCount = await prisma.queue.count({
     where: {
       musicID: sr.musicID,
-      finishedAt: {
+      playedAt: {
         not: null,
       },
     },
@@ -38,7 +39,7 @@ export const addQueue = async (
   return [true, ""];
 };
 
-export const playNext = async (
+export const addToPlayNext = async (
   prisma: PrismaClient,
   sr: SearchResult,
 ): Promise<[boolean, string]> => {
@@ -47,10 +48,7 @@ export const playNext = async (
 
   const res = await prisma.queue.findFirst({
     where: {
-      musicID: sr.musicID,
-      finishedAt: {
-        not: null,
-      },
+      playedAt: null,
     },
     orderBy: [
       {
@@ -59,9 +57,9 @@ export const playNext = async (
     ],
   });
 
-  const createdAt: Date = new Date();
+  let createdAt: Dayjs = dayjs();
   if (res) {
-    createdAt.setSeconds(res.createdAt.getMinutes() - 1);
+    createdAt = dayjs(res.createdAt).subtract(1, "minute");
   }
 
   await prisma.queue.create({
@@ -74,11 +72,26 @@ export const playNext = async (
       duration: sr.duration,
       duration_second: sr.duration_second,
       total_play: sr.total_play,
-      createdAt,
+      createdAt: createdAt.toDate(),
     },
   });
 
   return [true, ""];
+};
+
+export const getQueues = async (prisma: PrismaClient): Promise<Queue[]> => {
+  const res = await prisma.queue.findMany({
+    where: {
+      playedAt: null,
+    },
+    orderBy: [
+      {
+        createdAt: "asc",
+      },
+    ],
+  });
+
+  return res;
 };
 
 export const getQueue = async (

@@ -41,15 +41,15 @@ export const Play = async (page: Page, queue: Queue) => {
   // });
 
   // new Promise((r) => setTimeout(r, 5000));
-  await page.waitForNetworkIdle();
+  // await page.waitForNetworkIdle();
 
   console.log("after waitfornetworkidle");
   await page.waitForSelector(".ytmusic-player-bar .title");
-  const thumbnail = await page.$eval(
-    ".ytmusic-player-bar .title",
-    (el) => el.textContent || "",
-  );
-  console.log("thumbnail", thumbnail);
+  // const thumbnail = await page.$eval(
+  //   ".ytmusic-player-bar .title",
+  //   (el) => el.textContent || "",
+  // );
+  // console.log("thumbnail", thumbnail);
   // await page.waitForNavigation({
   //   waitUntil: "networkidle0",
   // });
@@ -121,6 +121,8 @@ export const Pause = async (page) => {
 };
 
 export const GetCurrentPlaying = async (page: Page): Promise<Queue> => {
+  await page.waitForSelector(".ytmusic-player-bar .title");
+
   const title = await page.$eval(
     ".ytmusic-player-bar .title",
     (el) => el.textContent || "",
