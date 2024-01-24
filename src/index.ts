@@ -232,6 +232,16 @@ import { MonitorDOMTextContent } from "./page";
     PlayQueue(ctx, true);
   });
 
+  bot.command("fixplayer", async () => {
+    if (statusPlay == "playing") {
+      statusPlay = "paused";
+      return;
+    } else if (statusPlay == "paused") {
+      statusPlay = "playing";
+      return;
+    }
+  });
+
   const PlayQueue = async (ctx: Context, play: boolean) => {
     console.log("PlayQueue");
     console.log("playerPage.isClosed()", playerPage.isClosed());
