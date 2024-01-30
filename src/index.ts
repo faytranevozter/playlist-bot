@@ -488,13 +488,24 @@ import {
       ctx.reply("ITS CURRENTLY PLAYING");
       return;
     } else if (statusPlay == "paused") {
-      // play with keyboard
-      playerPage.keyboard.press("Space");
+      try {
+        // wait for play mode, make sure is playing
+        await playerPage.waitForSelector(
+          `#play-pause-button[title="Play"]:not([hidden])`,
+        );
 
-      // update status play
-      statusPlay = "playing";
+        // pause (prevent playing unwanted next song)
+        await playerPage.click(
+          `#play-pause-button[title="Play"]:not([hidden])`,
+        );
 
-      ctx.reply("RESUMING PLAYER");
+        // update status play
+        statusPlay = "playing";
+
+        ctx.reply("RESUMING PLAYER");
+      } catch (error) {
+        ctx.reply("Failed to play");
+      }
       return;
     }
 
@@ -506,15 +517,25 @@ import {
     // return;
     if (statusPlay !== "playing") {
       ctx.reply("NOTHING PLAYED");
+      return;
     }
 
-    // pause with keyboard
-    playerPage.keyboard.press("Space");
+    try {
+      // wait for play mode, make sure is playing
+      await playerPage.waitForSelector(
+        `#play-pause-button[title="Pause"]:not([hidden])`,
+      );
 
-    // update status play
-    statusPlay = "paused";
+      // pause (prevent playing unwanted next song)
+      await playerPage.click(`#play-pause-button[title="Pause"]:not([hidden])`);
 
-    ctx.reply("PAUSED");
+      // update status play
+      statusPlay = "paused";
+
+      ctx.reply("PAUSED");
+    } catch (error) {
+      ctx.reply("Failed to pause");
+    }
   });
 
   bot.command("info", async (ctx) => {
@@ -541,22 +562,18 @@ import {
       // always clear interval
       clearInterval(playerTimer);
 
-      // not watching anymore
-      // isWatchingDOM = false;
-
-      // update status play
-      statusPlay = "idle";
-
-      // assign current queue
-      currentQueue = nextQueue;
-
-      // close tab
-      if (!playerPage.isClosed()) {
-        // close tab
-        await playerPage.close();
+      // set finish
+      if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
+        await updateFinished(prisma, currentQueue);
       }
 
-      // running
+      // set currentQueue to nextQueue
+      currentQueue = nextQueue;
+
+      // update current title (it should the same even the source is different)
+      currentTitle = nextQueue.title;
+
+      // play current song with refresh
       await PlayCurrentSong(true);
     } else {
       console.log("Next: no next queue -> playing auto");
