@@ -1,25 +1,10 @@
-// import { Browser } from "puppeteer";
-// import "dotenv/config";
-// import { Browser, Page } from "puppeteer-core";
 import puppeteer from "puppeteer-extra";
-// import search from "./search";
 import { GetCurrentPlaying, PlayDirectURL, PlayFromHome } from "./player";
-// const puppeteer = require('puppeteer-core');
 import { Markup, Telegraf } from "telegraf";
-// import YTMusic from "ytmusic-api";
-
 import { PrismaClient, Queue } from "@prisma/client";
-// import { addQueue } from "./queue";
-// import { YoutubeMeta, getYoutubeMeta } from "./util/youtube";
 import { initCookies } from "./cookies";
-
-// const StealthPlugin = require('puppeteer-extra-plugin-stealth')
-// import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import Adblocker from "puppeteer-extra-plugin-adblocker";
-
 import { Browser, Page } from "puppeteer";
-
-// import { getQueue } from "./queue";
 import { botToken } from "./config";
 import { PuppeteerBlocker } from "@cliqz/adblocker-puppeteer";
 import {
@@ -38,76 +23,9 @@ import {
   updateIsPlaying,
   updatePlayedAt,
 } from "./queue";
-// import { MonitorDOMTextContent } from "./page";
-// puppeteer.use(StealthPlugin())
 
 (async () => {
-  // const xbot = new Telegraf(botToken);
-  // xbot.start((ctx) => ctx.reply("Welcome"));
-  // // xbot.help((ctx) => ctx.reply('Send me a sticker'))
-  // // xbot.on(message('sticker'), (ctx) => ctx.reply('👍'))
-  // // xbot.hears('hi', (ctx) => ctx.reply('Hey there'))
-
-  // xbot.on("inline_query", async (ctx) => {
-  //   // const result = [];
-  //   // Explicit usage
-
-  //   // console.log(ctx.inlineQuery);
-  //   const id = new Date().getTime().toString();
-  //   console.log(id);
-
-  //   // await ctx.telegram.answerInlineQuery(ctx.inlineQuery.id, result)
-
-  //   // Using context shortcut
-  //   return await ctx.answerInlineQuery([
-  //     {
-  //       id,
-  //       type: "article",
-  //       title: "Payung Teduh",
-  //       description: "ini apa ya?",
-  //       thumbnail_url: "https://placekitten.com/200/300",
-  //       // reply_markup: {
-  //       //   inline_keyboard: reply,
-  //       // },
-  //       input_message_content: {
-  //         message_text: "Payung",
-  //         // parse_mode: "MarkdownV2",
-  //         // description: "description here",
-  //       },
-  //       ...Markup.inlineKeyboard([
-  //         [Markup.button.callback("Play Next", "play-next-x")],
-  //         [Markup.button.callback("Add to Queue", JSON.stringify({ a: "c" }))],
-  //       ]),
-  //     },
-  //   ]);
-  // });
-
-  // xbot.action(/^(play-next-)/g, async (ctx) => {
-  //   console.log(ctx);
-  //   await ctx.answerCbQuery();
-  //   await ctx.editMessageReplyMarkup(undefined);
-  // });
-
-  // // auto play
-  // // xbot.on("chosen_inline_result", ({ chosenInlineResult }) => {
-  // //   console.log("chosen inline result", chosenInlineResult);
-  // // });
-
-  // xbot.launch();
-
-  // return;
-
-  // const ytmusic = new YTMusic()
-  // await ytmusic.initalize()
-  // ytmusic.
-  // return
   const prisma = new PrismaClient();
-
-  // replace topic
-  // const url: string = 'https://music.youtube.com/watch?v=bl6SDqjSpMI'
-  // addQueue(prisma, url)
-  // addQueue(prisma, 'https://music.youtube.com/watch?v=KWLGyeg74es&si=LJgQf_wRd8x-JVZ9', 'Owl city')
-  // return
 
   // Launch the browser
   const browser: Browser = await puppeteer
@@ -119,78 +37,32 @@ import {
       ignoreDefaultArgs: ["--mute-audio"],
       args: [
         '--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"',
-        // '--use-gl=egl', // linux headless
         "--autoplay-policy=no-user-gesture-required",
-        // "--start-maximized",
-        // "--start-fullscreen",
       ],
       defaultViewport: null,
-      // executablePath: '/Applications/Google Chrome.app/',
-      // executablePath:
-      // "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     });
 
-  // blocker extension
-  // const blocker = await PuppeteerBlocker.fromLists(fetch, [
-  //   "https://easylist.to/easylist/easylist.txt",
-  // ]);
-
-  // Create a page
-  // const page = await browser.newPage();
+  // get pages
   const pages: Page[] = await browser.pages();
   let playerPage: Page = pages[0];
 
   PuppeteerBlocker.fromPrebuiltAdsAndTracking(fetch).then((blocker) => {
     blocker.enableBlockingInPage(playerPage);
   });
-  // await blocker.enableBlockingInPage(playerPage);
-
-  // let isPlaying: boolean = false;
 
   // init cookies
   initCookies();
 
-  // const playerState: PlayerState = {
-  //   title: "Testing",
-  //   author: "author",
-  //   thumbnail: "thumbnail",
-  //   url: "url",
-  //   is_playing: false,
-  //   time: 0,
-  //   duration: 0,
-  // };
-
-  // const searchPage: Page = await browser.newPage();
-  // search(searchPage, 'hijau+daun')
-  // player(playerPage, 'https://music.youtube.com/watch?v=bl6SDqjSpMI')
-
-  // await page.setViewport();
-
-  // search
-
-  // Close browser.
-  // await browser.close();
-
+  // init BOT
   const bot = new Telegraf(botToken);
   bot.start((ctx) => ctx.reply("Welcome"));
-  // bot.help((ctx) => ctx.reply('Send me a sticker'))
-  // bot.on(message('sticker'), (ctx) => ctx.reply('👍'))
-  // bot.hears('hi', (ctx) => ctx.reply('Hey there'))
 
-  // bot.command("info", (ctx) => {
-  //   ctx.reply(JSON.stringify(lastQueue, null, 2));
-  // });
-
-  // bot.command("queue", (ctx) => {
-  //   const message = ctx.message.text.replace(/queue/, "asd");
-  //   ctx.reply(message);
-  // });
-
+  // define status player
   let statusPlay: "playing" | "paused" | "idle" = "idle";
+
+  // get queue if exist
   let currentQueue: Queue;
-  // let isWatchingDOM: boolean = false;
-  // eslint-disable-next-line prefer-const
-  let [exist, lastQueue] = await getQueue(prisma);
+  const [exist, lastQueue] = await getQueue(prisma);
   if (!exist) {
     currentQueue = {
       id: 0,
@@ -234,7 +106,6 @@ import {
   let newTitle: string | null = null;
   const LocalMonitor = async () => {
     try {
-      // console.log("LocalMonitor: checking");
       if (playerPage.isClosed()) {
         clearInterval(playerTimer);
       }
@@ -244,12 +115,11 @@ import {
         (await (
           await playerPage.$(".ytmusic-player-bar .title")
         )?.evaluate((el) => el.textContent || "")) || "";
-      // console.log("LocalMonitor: currentTitle", currentTitle);
-      // console.log("LocalMonitor: newTitle", newTitle);
-      console.log(`"${currentTitle}"=="${newTitle}"`);
+
+      // console.log(`"${currentTitle}"=="${newTitle}"`);
+
       if (newTitle != currentTitle) {
-        // await
-        console.log(`"${currentTitle}"=="${newTitle}"`);
+        // on really change
         if (currentTitle !== null) {
           // clear interval (stop monitoring)
           clearInterval(playerTimer);
@@ -282,11 +152,11 @@ import {
             // play current song with refresh
             await PlayCurrentSong(true);
           } else {
-            // resume
             // wait for play mode, make sure is playing
             await playerPage.waitForSelector(
               `#play-pause-button[title="Play"]:not([hidden])`,
             );
+            // resume
             await playerPage.click(
               `#play-pause-button[title="Play"]:not([hidden])`,
             );
@@ -298,7 +168,7 @@ import {
             // send notification
             sendNotificationCurrentPlaying();
 
-            // monitoring dom
+            // monitoring dom (again)
             MonitoringEndSong();
           }
         } else {
@@ -312,59 +182,8 @@ import {
     }
   };
 
-  const PlayAutoNextSong = async () => {
-    console.log("PlayAutoNextSong: no next queue -> playing auto");
-
-    // change current play
-    currentQueue = await GetCurrentPlaying(playerPage);
-
-    // resume
-    // await playerPage.keyboard.press("Space");
-    await PlayCurrentSong(false);
-  };
-
-  const PlayNextSong = async () => {
-    // set finish
-    if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
-      await updateFinished(prisma, currentQueue);
-    }
-
-    // pause
-    // await playerPage.keyboard.press("Space");
-
-    console.log("PlayNextSong: get next queue");
-    // get next queue
-    const [nextExist, nextQueue] = await getQueue(prisma);
-    if (nextExist && nextQueue !== null) {
-      console.log("PlayNextSong: next queue exist");
-      // close tab
-      await playerPage.close();
-
-      // not watching anymore
-      // isWatchingDOM = false;
-
-      // update status play
-      statusPlay = "idle";
-
-      // assign current queue
-      currentQueue = nextQueue;
-
-      // running
-      await PlayCurrentSong(true);
-    } else {
-      console.log("PlayNextSong: no next queue -> playing auto");
-
-      // change current play
-      currentQueue = await GetCurrentPlaying(playerPage);
-
-      // resume
-      // await playerPage.keyboard.press("Space");
-      await PlayCurrentSong(false);
-    }
-  };
-
   const MonitoringEndSong = () => {
-    console.log("MonitoringEndSong: monitoring dom");
+    // console.log("MonitoringEndSong: monitoring dom");
     if (playerTimer != null) {
       clearInterval(playerTimer);
     }
@@ -382,19 +201,15 @@ import {
   };
 
   const PlayCurrentSong = async (openWithRefreshPage: boolean) => {
-    console.log("PlayCurrentSong");
-
-    // console.log("playerPage.isClosed()", playerPage.isClosed());
     if (playerPage.isClosed()) {
-      console.log("PlayCurrentSong open new tab");
+      // open new tab
       playerPage = await browser.newPage();
     }
 
     // playing song
     if (openWithRefreshPage) {
-      console.log("PlayCurrentSong open browser");
+      // open browser
       await PlayDirectURL(playerPage, currentQueue);
-      console.log("PlayCurrentSong after open browser");
     }
 
     // update is playing (global variable)
@@ -406,84 +221,14 @@ import {
       await updatePlayedAt(prisma, currentQueue);
     }
 
+    // send notification
     sendNotificationCurrentPlaying();
-    // await ctx.reply(`Playing ${currentQueue.title} by ${currentQueue.artist}`);
 
-    // on ending music
+    // monitoring dom on change song (after song end)
     MonitoringEndSong();
-    // console.log("PlayQueue: monitoring dom");
-    // if (playerTimer != null) {
-    //   clearInterval(playerTimer);
-    // }
-
-    // playerTimer = setInterval(LocalMonitor, 500);
-    // if (!isWatchingDOM) {
-    //   isWatchingDOM = true;
-    // await playerPage.waitForSelector(".ytmusic-player-bar .title");
-    // await MonitorDOMTextContent(
-    //   playerPage,
-    //   // ".thumbnail-image-wrapper.ytmusic-player-bar img",
-    //   ".ytmusic-player-bar .title",
-    //   async (newTitle) => {
-    //     if (playerPage.isClosed()) {
-    //       return;
-    //     }
-
-    //     console.log("MonitorDOMTextContent: change!!!!");
-
-    //     // const newSong = await newElement?.evaluate((e) => e.textContent);
-    //     console.log("MonitorDOMTextContent: newTitle", newTitle);
-
-    //     console.log("MonitorDOMTextContent: end duration");
-    //     // set finish
-    //     if (currentQueue.id > 0) {
-    //       await updateFinished(prisma, currentQueue);
-    //     }
-
-    //     // pause
-    //     // await playerPage.keyboard.press("Space");
-
-    //     console.log("MonitorDOMTextContent: get next queue");
-    //     // get next queue
-    //     const [nextExist, nextQueue] = await getQueue(prisma);
-    //     if (nextExist && nextQueue !== null) {
-    //       console.log("MonitorDOMTextContent: next queue exist");
-    //       // not watching anymore
-    //       isWatchingDOM = false;
-
-    //       // update status play
-    //       statusPlay = "idle";
-
-    //       // assign current queue
-    //       currentQueue = nextQueue;
-
-    //       if (!playerPage.isClosed()) {
-    //         // close tab
-    //         await playerPage.close();
-    //       }
-
-    //       // running
-    //       await PlayCurrentSong(true);
-    //     } else {
-    //       console.log("MonitorDOMTextContent: no next queue -> playing auto");
-
-    //       // change current play
-    //       currentQueue = await GetCurrentPlaying(playerPage);
-
-    //       // resume
-    //       // await playerPage.keyboard.press("Space");
-    //       await PlayCurrentSong(false);
-    //     }
-    //   },
-    //   null,
-    // );
-    // }
   };
 
-  // let playerTimer: NodeJS.Timeout;
   bot.command("play", async (ctx) => {
-    console.log("/play");
-    // return;
     if (statusPlay == "playing") {
       ctx.reply("ITS CURRENTLY PLAYING");
       return;
@@ -513,8 +258,6 @@ import {
   });
 
   bot.command("pause", async (ctx) => {
-    console.log("/pause");
-    // return;
     if (statusPlay !== "playing") {
       ctx.reply("NOTHING PLAYED");
       return;
@@ -548,8 +291,6 @@ import {
   });
 
   bot.command("next", async (ctx) => {
-    console.log("/next");
-    // return;
     if (statusPlay !== "playing") {
       ctx.reply("NOTHING PLAYED");
       return;
@@ -557,9 +298,10 @@ import {
 
     // get next queue
     const [nextExist, nextQueue] = await getQueue(prisma);
+
+    // if there is queue
     if (nextExist && nextQueue !== null) {
-      console.log("Next: next queue exist");
-      // always clear interval
+      // stop interval checking dom
       clearInterval(playerTimer);
 
       // set finish
@@ -576,18 +318,14 @@ import {
       // play current song with refresh
       await PlayCurrentSong(true);
     } else {
-      console.log("Next: no next queue -> playing auto");
-
       // click next song
       await playerPage.click(`.ytmusic-player-bar[title="Next"]`);
     }
-
-    // ctx.reply(`Now playing ${currentQueue.title} by ${currentQueue.artist}`);
   });
 
   bot.command("quick_pick", async (ctx) => {
-    PlayFromHome(playerPage, "QUICK_PICK");
     ctx.reply("Playing from quick pick");
+    PlayFromHome(playerPage, "QUICK_PICK");
   });
 
   bot.command("trending", async (ctx) => {
@@ -613,7 +351,6 @@ import {
     }
   });
 
-  // let isSeaching: boolean = false;
   let timer: NodeJS.Timeout | null = null;
   bot.on("inline_query", async (ctx) => {
     // const result = [];
