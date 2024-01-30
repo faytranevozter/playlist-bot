@@ -3,7 +3,7 @@
 // import { Browser, Page } from "puppeteer-core";
 import puppeteer from "puppeteer-extra";
 // import search from "./search";
-import { GetCurrentPlaying, Play, PlayFromHome } from "./player";
+import { GetCurrentPlaying, PlayDirectURL, PlayFromHome } from "./player";
 // const puppeteer = require('puppeteer-core');
 import { Markup, Telegraf } from "telegraf";
 // import YTMusic from "ytmusic-api";
@@ -14,7 +14,7 @@ import { PrismaClient, Queue } from "@prisma/client";
 import { initCookies } from "./cookies";
 
 // const StealthPlugin = require('puppeteer-extra-plugin-stealth')
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
+// import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import Adblocker from "puppeteer-extra-plugin-adblocker";
 
 import { Browser, Page } from "puppeteer";
@@ -38,7 +38,7 @@ import {
   updateIsPlaying,
   updatePlayedAt,
 } from "./queue";
-import { MonitorDOMTextContent } from "./page";
+// import { MonitorDOMTextContent } from "./page";
 // puppeteer.use(StealthPlugin())
 
 (async () => {
@@ -112,7 +112,7 @@ import { MonitorDOMTextContent } from "./page";
   // Launch the browser
   const browser: Browser = await puppeteer
     .use(Adblocker({ blockTrackers: true }))
-    .use(StealthPlugin())
+    // .use(StealthPlugin())
     .launch({
       headless: false,
       // headless: "new",
@@ -188,7 +188,7 @@ import { MonitorDOMTextContent } from "./page";
 
   let statusPlay: "playing" | "paused" | "idle" = "idle";
   let currentQueue: Queue;
-  let isWatchingDOM: boolean = false;
+  // let isWatchingDOM: boolean = false;
   // eslint-disable-next-line prefer-const
   let [exist, lastQueue] = await getQueue(prisma);
   if (!exist) {
@@ -214,25 +214,6 @@ import { MonitorDOMTextContent } from "./page";
     currentQueue = lastQueue;
   }
 
-  // let playerTimer: NodeJS.Timeout;
-  bot.command("play", async (ctx) => {
-    if (statusPlay == "playing") {
-      ctx.reply("ITS CURRENTLY PLAYING");
-      return;
-    } else if (statusPlay == "paused") {
-      // play with keyboard
-      playerPage.keyboard.press("Space");
-
-      // update status play
-      statusPlay = "playing";
-
-      ctx.reply("RESUMING PLAYER");
-      return;
-    }
-
-    PlayQueue(true);
-  });
-
   bot.command("fixplayer", async () => {
     if (statusPlay == "playing") {
       statusPlay = "paused";
@@ -247,19 +228,172 @@ import { MonitorDOMTextContent } from "./page";
     return bot.telegram.sendMessage(233041497, message);
   };
 
-  const PlayQueue = async (play: boolean) => {
-    console.log("PlayQueue");
-    console.log("playerPage.isClosed()", playerPage.isClosed());
+  let playerTimer: NodeJS.Timeout;
+
+  let currentTitle: string | null = null;
+  let newTitle: string | null = null;
+  const LocalMonitor = async () => {
+    try {
+      // console.log("LocalMonitor: checking");
+      if (playerPage.isClosed()) {
+        clearInterval(playerTimer);
+      }
+
+      await playerPage.waitForSelector(".ytmusic-player-bar .title");
+      newTitle =
+        (await (
+          await playerPage.$(".ytmusic-player-bar .title")
+        )?.evaluate((el) => el.textContent || "")) || "";
+      // console.log("LocalMonitor: currentTitle", currentTitle);
+      // console.log("LocalMonitor: newTitle", newTitle);
+      console.log(`"${currentTitle}"=="${newTitle}"`);
+      if (newTitle != currentTitle) {
+        // await
+        console.log(`"${currentTitle}"=="${newTitle}"`);
+        if (currentTitle !== null) {
+          // clear interval (stop monitoring)
+          clearInterval(playerTimer);
+
+          // wait for play mode, make sure is playing
+          await playerPage.waitForSelector(
+            `#play-pause-button[title="Pause"]`,
+            {
+              timeout: 3000,
+            },
+          );
+
+          // pause (prevent playing unwanted next song)
+          await playerPage.click(`#play-pause-button[title="Pause"]`);
+          // await playerPage.keyboard.press("Space");
+
+          // set finish
+          if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
+            await updateFinished(prisma, currentQueue);
+          }
+
+          // check next queue
+          const [nextExist, nextQueue] = await getQueue(prisma);
+          if (nextExist && nextQueue != null) {
+            // set currentQueue to nextQueue
+            currentQueue = nextQueue;
+
+            // update current title (it should the same even the source is different)
+            currentTitle = nextQueue.title;
+
+            // play current song with refresh
+            await PlayCurrentSong(true);
+          } else {
+            // resume
+            // wait for play mode, make sure is playing
+            await playerPage.waitForSelector(
+              `#play-pause-button[title="Play"]`,
+            );
+            await playerPage.click(`#play-pause-button[title="Play"]`);
+
+            // change current play & currentTitle
+            currentQueue = await GetCurrentPlaying(playerPage);
+            currentTitle = currentQueue.title;
+
+            // send notification
+            sendNotificationCurrentPlaying();
+
+            // monitoring dom
+            MonitoringEndSong();
+          }
+        } else {
+          currentTitle = newTitle;
+        }
+      }
+    } catch (error) {
+      console.error("---------------");
+      console.error(error);
+      console.error("---------------");
+    }
+  };
+
+  const PlayAutoNextSong = async () => {
+    console.log("PlayAutoNextSong: no next queue -> playing auto");
+
+    // change current play
+    currentQueue = await GetCurrentPlaying(playerPage);
+
+    // resume
+    // await playerPage.keyboard.press("Space");
+    await PlayCurrentSong(false);
+  };
+
+  const PlayNextSong = async () => {
+    // set finish
+    if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
+      await updateFinished(prisma, currentQueue);
+    }
+
+    // pause
+    // await playerPage.keyboard.press("Space");
+
+    console.log("PlayNextSong: get next queue");
+    // get next queue
+    const [nextExist, nextQueue] = await getQueue(prisma);
+    if (nextExist && nextQueue !== null) {
+      console.log("PlayNextSong: next queue exist");
+      // close tab
+      await playerPage.close();
+
+      // not watching anymore
+      // isWatchingDOM = false;
+
+      // update status play
+      statusPlay = "idle";
+
+      // assign current queue
+      currentQueue = nextQueue;
+
+      // running
+      await PlayCurrentSong(true);
+    } else {
+      console.log("PlayNextSong: no next queue -> playing auto");
+
+      // change current play
+      currentQueue = await GetCurrentPlaying(playerPage);
+
+      // resume
+      // await playerPage.keyboard.press("Space");
+      await PlayCurrentSong(false);
+    }
+  };
+
+  const MonitoringEndSong = () => {
+    console.log("MonitoringEndSong: monitoring dom");
+    if (playerTimer != null) {
+      clearInterval(playerTimer);
+    }
+
+    playerTimer = setInterval(LocalMonitor, 500);
+  };
+
+  const sendNotificationCurrentPlaying = async () => {
+    console.log(
+      `PlayCurrentSong Playing ${currentQueue.title} by ${currentQueue.artist}`,
+    );
+    await sendMessage(
+      `Playing ${currentQueue.title} by ${currentQueue.artist}`,
+    );
+  };
+
+  const PlayCurrentSong = async (openWithRefreshPage: boolean) => {
+    console.log("PlayCurrentSong");
+
+    // console.log("playerPage.isClosed()", playerPage.isClosed());
     if (playerPage.isClosed()) {
-      console.log("PlayQueue open new tab");
+      console.log("PlayCurrentSong open new tab");
       playerPage = await browser.newPage();
     }
 
     // playing song
-    if (play) {
-      console.log("PlayQueue open browser");
-      await Play(playerPage, currentQueue);
-      console.log("PlayQueue after open browser");
+    if (openWithRefreshPage) {
+      console.log("PlayCurrentSong open browser");
+      await PlayDirectURL(playerPage, currentQueue);
+      console.log("PlayCurrentSong after open browser");
     }
 
     // update is playing (global variable)
@@ -271,80 +405,104 @@ import { MonitorDOMTextContent } from "./page";
       await updatePlayedAt(prisma, currentQueue);
     }
 
-    console.log(
-      `PlayQueue Playing ${currentQueue.title} by ${currentQueue.artist}`,
-    );
-    await sendMessage(
-      `Playing ${currentQueue.title} by ${currentQueue.artist}`,
-    );
+    sendNotificationCurrentPlaying();
     // await ctx.reply(`Playing ${currentQueue.title} by ${currentQueue.artist}`);
 
     // on ending music
-    console.log("PlayQueue: monitoring dom");
-    if (!isWatchingDOM) {
-      isWatchingDOM = true;
-      // await playerPage.waitForSelector(".ytmusic-player-bar .title");
-      await MonitorDOMTextContent(
-        playerPage,
-        // ".thumbnail-image-wrapper.ytmusic-player-bar img",
-        ".ytmusic-player-bar .title",
-        async (newTitle) => {
-          if (playerPage.isClosed()) {
-            return;
-          }
+    MonitoringEndSong();
+    // console.log("PlayQueue: monitoring dom");
+    // if (playerTimer != null) {
+    //   clearInterval(playerTimer);
+    // }
 
-          console.log("MonitorDOMTextContent: change!!!!");
+    // playerTimer = setInterval(LocalMonitor, 500);
+    // if (!isWatchingDOM) {
+    //   isWatchingDOM = true;
+    // await playerPage.waitForSelector(".ytmusic-player-bar .title");
+    // await MonitorDOMTextContent(
+    //   playerPage,
+    //   // ".thumbnail-image-wrapper.ytmusic-player-bar img",
+    //   ".ytmusic-player-bar .title",
+    //   async (newTitle) => {
+    //     if (playerPage.isClosed()) {
+    //       return;
+    //     }
 
-          // const newSong = await newElement?.evaluate((e) => e.textContent);
-          console.log("MonitorDOMTextContent: newTitle", newTitle);
+    //     console.log("MonitorDOMTextContent: change!!!!");
 
-          console.log("MonitorDOMTextContent: end duration");
-          // set finish
-          if (currentQueue.id > 0) {
-            await updateFinished(prisma, currentQueue);
-          }
+    //     // const newSong = await newElement?.evaluate((e) => e.textContent);
+    //     console.log("MonitorDOMTextContent: newTitle", newTitle);
 
-          // pause
-          // await playerPage.keyboard.press("Space");
+    //     console.log("MonitorDOMTextContent: end duration");
+    //     // set finish
+    //     if (currentQueue.id > 0) {
+    //       await updateFinished(prisma, currentQueue);
+    //     }
 
-          console.log("MonitorDOMTextContent: get next queue");
-          // get next queue
-          const [nextExist, nextQueue] = await getQueue(prisma);
-          if (nextExist && nextQueue !== null) {
-            console.log("MonitorDOMTextContent: next queue exist");
-            // not watching anymore
-            isWatchingDOM = false;
+    //     // pause
+    //     // await playerPage.keyboard.press("Space");
 
-            // update status play
-            statusPlay = "idle";
+    //     console.log("MonitorDOMTextContent: get next queue");
+    //     // get next queue
+    //     const [nextExist, nextQueue] = await getQueue(prisma);
+    //     if (nextExist && nextQueue !== null) {
+    //       console.log("MonitorDOMTextContent: next queue exist");
+    //       // not watching anymore
+    //       isWatchingDOM = false;
 
-            // assign current queue
-            currentQueue = nextQueue;
+    //       // update status play
+    //       statusPlay = "idle";
 
-            if (!playerPage.isClosed()) {
-              // close tab
-              await playerPage.close();
-            }
+    //       // assign current queue
+    //       currentQueue = nextQueue;
 
-            // running
-            await PlayQueue(true);
-          } else {
-            console.log("MonitorDOMTextContent: no next queue -> playing auto");
+    //       if (!playerPage.isClosed()) {
+    //         // close tab
+    //         await playerPage.close();
+    //       }
 
-            // change current play
-            currentQueue = await GetCurrentPlaying(playerPage);
+    //       // running
+    //       await PlayCurrentSong(true);
+    //     } else {
+    //       console.log("MonitorDOMTextContent: no next queue -> playing auto");
 
-            // resume
-            // await playerPage.keyboard.press("Space");
-            await PlayQueue(false);
-          }
-        },
-        null,
-      );
-    }
+    //       // change current play
+    //       currentQueue = await GetCurrentPlaying(playerPage);
+
+    //       // resume
+    //       // await playerPage.keyboard.press("Space");
+    //       await PlayCurrentSong(false);
+    //     }
+    //   },
+    //   null,
+    // );
+    // }
   };
 
+  // let playerTimer: NodeJS.Timeout;
+  bot.command("play", async (ctx) => {
+    console.log("/play");
+    // return;
+    if (statusPlay == "playing") {
+      ctx.reply("ITS CURRENTLY PLAYING");
+      return;
+    } else if (statusPlay == "paused") {
+      // play with keyboard
+      playerPage.keyboard.press("Space");
+
+      // update status play
+      statusPlay = "playing";
+
+      ctx.reply("RESUMING PLAYER");
+      return;
+    }
+
+    PlayCurrentSong(true);
+  });
+
   bot.command("pause", async (ctx) => {
+    console.log("/pause");
+    // return;
     if (statusPlay !== "playing") {
       ctx.reply("NOTHING PLAYED");
     }
@@ -368,6 +526,8 @@ import { MonitorDOMTextContent } from "./page";
   });
 
   bot.command("next", async (ctx) => {
+    console.log("/next");
+    // return;
     if (statusPlay !== "playing") {
       ctx.reply("NOTHING PLAYED");
       return;
@@ -377,9 +537,11 @@ import { MonitorDOMTextContent } from "./page";
     const [nextExist, nextQueue] = await getQueue(prisma);
     if (nextExist && nextQueue !== null) {
       console.log("Next: next queue exist");
+      // always clear interval
+      clearInterval(playerTimer);
 
       // not watching anymore
-      isWatchingDOM = false;
+      // isWatchingDOM = false;
 
       // update status play
       statusPlay = "idle";
@@ -394,7 +556,7 @@ import { MonitorDOMTextContent } from "./page";
       }
 
       // running
-      await PlayQueue(true);
+      await PlayCurrentSong(true);
     } else {
       console.log("Next: no next queue -> playing auto");
 

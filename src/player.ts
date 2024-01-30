@@ -23,7 +23,7 @@ const mapHomepage: Homepage = {
   TRENDING: 8,
 };
 
-export const Play = async (page: Page, queue: Queue) => {
+export const PlayDirectURL = async (page: Page, queue: Queue) => {
   // load cookies
   await loadCookies(page);
 

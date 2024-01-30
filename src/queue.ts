@@ -13,9 +13,7 @@ export const addQueue = async (
   const resCount = await prisma.queue.count({
     where: {
       musicID: sr.musicID,
-      playedAt: {
-        not: null,
-      },
+      playedAt: null,
     },
   });
 
