@@ -256,14 +256,13 @@ import {
 
           // wait for play mode, make sure is playing
           await playerPage.waitForSelector(
-            `#play-pause-button[title="Pause"]`,
-            {
-              timeout: 3000,
-            },
+            `#play-pause-button[title="Pause"]:not([hidden])`,
           );
 
           // pause (prevent playing unwanted next song)
-          await playerPage.click(`#play-pause-button[title="Pause"]`);
+          await playerPage.click(
+            `#play-pause-button[title="Pause"]:not([hidden])`,
+          );
           // await playerPage.keyboard.press("Space");
 
           // set finish
@@ -286,9 +285,11 @@ import {
             // resume
             // wait for play mode, make sure is playing
             await playerPage.waitForSelector(
-              `#play-pause-button[title="Play"]`,
+              `#play-pause-button[title="Play"]:not([hidden])`,
             );
-            await playerPage.click(`#play-pause-button[title="Play"]`);
+            await playerPage.click(
+              `#play-pause-button[title="Play"]:not([hidden])`,
+            );
 
             // change current play & currentTitle
             currentQueue = await GetCurrentPlaying(playerPage);
