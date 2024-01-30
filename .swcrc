@@ -1,20 +1,20 @@
 {
-    "$schema": "https://json.schemastore.org/swcrc",
-    "jsc": {
-        "parser": {
-            "syntax": "typescript",
-            "tsx": true,
-            "dynamicImport": false,
-            "decorators": true,
-            "dts": true
-        },
-        "target": "es2020",
-        "loose": false,
-        "externalHelpers": false,
-        "keepClassNames": false
+  "$schema": "https://json.schemastore.org/swcrc",
+  "jsc": {
+    "parser": {
+      "syntax": "typescript",
+      "tsx": true,
+      "dynamicImport": false,
+      "decorators": true,
+      "dts": true
     },
-    "minify": false,
-    "module": {
-        "type": "commonjs"
-    }
+    "target": "es2020",
+    "loose": false,
+    "externalHelpers": false,
+    "keepClassNames": false
+  },
+  "minify": false,
+  "module": {
+    "type": "commonjs"
+  }
 }
