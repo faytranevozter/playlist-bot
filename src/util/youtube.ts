@@ -1,4 +1,8 @@
 import getYouTubeID from "get-youtube-id";
+import YTMusic, { SongDetailed } from "ytmusic-api";
+import fmtDuration from "format-duration";
+
+let ytmusic: YTMusic | null = null;
 
 export interface YoutubeMeta {
   title: string;
@@ -16,7 +20,21 @@ export interface YoutubeMeta {
   html: string;
 }
 
-// export type YoutubeMeta as YoutubeMeta
+export const SearchSong = async (
+  q: string,
+): Promise<(typeof SongDetailed.infer)[]> => {
+  if (ytmusic === null) {
+    console.log("init");
+    ytmusic = new YTMusic();
+    await ytmusic.initialize();
+  }
+
+  return ytmusic.searchSongs(q);
+};
+
+export const convertVideoIDtoMusicID = (videoID: string): string => {
+  return `watch?v=${videoID}`;
+};
 
 export const getYoutubeMeta = async (url: string): Promise<YoutubeMeta> => {
   const musicID: string | null = getYouTubeID(url);
@@ -40,6 +58,10 @@ export const convertDuration = (duration: string): number => {
   }
 
   return durationInsecond;
+};
+
+export const formatDuration = (duration: number): string => {
+  return fmtDuration(duration * 1000);
 };
 
 export const getMusicID = (rawURL: string): string => {

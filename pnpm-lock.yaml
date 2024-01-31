@@ -17,6 +17,9 @@ dependencies:
   dotenv:
     specifier: ^16.3.1
     version: 16.3.1
+  format-duration:
+    specifier: ^3.0.2
+    version: 3.0.2
   get-youtube-id:
     specifier: ^1.0.1
     version: 1.0.1
@@ -1677,6 +1680,10 @@ packages:
       asynckit: 0.4.0
       combined-stream: 1.0.8
       mime-types: 2.1.35
+    dev: false
+
+  /format-duration@3.0.2:
+    resolution: {integrity: sha512-pKzJDSRgK2lqAiPW3uizDaIJaJnataZclsahz25UMwfdryBGDa+1HlbXGjzpMvX/2kMh4O0sNevFXKaEfCjHsA==}
     dev: false
 
   /fs-extra@10.1.0:

@@ -27,55 +27,19 @@ export const PlayDirectURL = async (page: Page, queue: Queue) => {
   // load cookies
   await loadCookies(page);
 
-  // Go to your site
+  // go to page
   await page.goto(`https://music.youtube.com/${queue.musicID}`);
-  // console.log('Playing music');
 
-  // await page.evaluate(function() {
-  //   const progress = document.querySelector("#progress-bar");
-  //   setInterval(() => {
-  //     state.time = parseInt(progress?.ariaValueNow || "");
-  //     state.duration = parseInt(progress?.ariaValueMax || "");
-  //     console.log(progress?.ariaValueNow, progress?.ariaValueMax);
-  //   }, 1000);
-  // });
-
-  // new Promise((r) => setTimeout(r, 5000));
-  // await page.waitForNetworkIdle();
-
-  console.log("after waitfornetworkidle");
+  // stupid case: wait for playing
   await page.waitForSelector(".ytmusic-player-bar .title");
-  // const thumbnail = await page.$eval(
-  //   ".ytmusic-player-bar .title",
-  //   (el) => el.textContent || "",
-  // );
-  // console.log("thumbnail", thumbnail);
-  // await page.waitForNavigation({
-  //   waitUntil: "networkidle0",
-  // });
-
-  // state.duration = await page.$eval("#progress-bar", (el) =>
-  //   parseInt(el?.ariaValueMax || ""),
-  // );
-
-  // console.log(state);
 
   // save
   await saveCookies(page);
-
-  // await page.click('div#header a.yt-simple-endpoint.style-scope.ytmusic-chip-cloud-chip-renderer[title="Show song results"]');
-  // await page.focus('div#search-input.ytd-searchbox-spt');
-  // await page.type('div#search-input.ytd-searchbox-spt', input);
-  // await page.keyboard.press('Enter');
-  // await page.waitForTimeout('2000');
-  // await page.click('a#video-title.yt-simple-endpoint.style-scope.ytd-video-renderer');
 };
 
 export const PlayFromHome = async (page: Page, part: keyof Homepage) => {
   // load cookies
   await loadCookies(page);
-
-  console.log("url", page.url());
 
   if (page.url() == "about:blank") {
     await page.goto("https://music.youtube.com/");
@@ -84,16 +48,11 @@ export const PlayFromHome = async (page: Page, part: keyof Homepage) => {
     await page.click("tp-yt-paper-item:first-child");
   }
 
-  // Go to your site
-  // console.log('Playing music');
-
-  await page.waitForNetworkIdle();
-  // await page.waitForNavigation({
-  //   waitUntil: "domcontentloaded",
-  // });
-
-  console.log("url", page.url());
   try {
+    await page.waitForSelector(
+      `#contents #items:nth-child(-n + ${mapHomepage[part] + 1}) #play-button:first-child`,
+    );
+
     await page.click(
       `#contents #items:nth-child(-n + ${mapHomepage[part] + 1}) #play-button:first-child`,
     );
@@ -101,23 +60,8 @@ export const PlayFromHome = async (page: Page, part: keyof Homepage) => {
     console.error("something went wrong when playing music");
   }
 
-  // await page.evaluate((index) => {
-  //   window.addEventListener("load", (e) => {
-  //     document
-  //       .querySelectorAll("#contents #items")
-  //       [index].querySelectorAll("#play-button")[0]
-  //       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  //       // @ts-ignore
-  //       .click();
-  //   });
-  // }, mapHomepage[part]);
-
   // save
   await saveCookies(page);
-};
-
-export const Pause = async (page) => {
-  await page.keyboard.press("Space");
 };
 
 export const GetCurrentPlaying = async (page: Page): Promise<Queue> => {

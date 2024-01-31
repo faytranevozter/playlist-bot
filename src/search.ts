@@ -1,6 +1,11 @@
 import { Prisma, PrismaClient, SearchResult } from "@prisma/client";
 import { Page } from "puppeteer";
-import { convertDuration } from "./util/youtube";
+import {
+  SearchSong,
+  convertDuration,
+  convertVideoIDtoMusicID,
+  formatDuration,
+} from "./util/youtube";
 
 export interface SearchResultWeb {
   musicID: string;
@@ -12,7 +17,28 @@ export interface SearchResultWeb {
   total_play: string;
 }
 
-export const SearchWord = async (page: Page, query: string) => {
+export const SearchWordApi = async (
+  query: string,
+): Promise<SearchResultWeb[]> => {
+  const res = await SearchSong(query);
+
+  return res.map((row): SearchResultWeb => {
+    return {
+      musicID: convertVideoIDtoMusicID(row.videoId),
+      title: row.name || "",
+      thumbnail: row.thumbnails[0].url || "",
+      artist: row.artist.name,
+      album: row.album?.name,
+      duration: formatDuration(row.duration || 0),
+      total_play: "",
+    };
+  });
+};
+
+export const SearchWord = async (
+  page: Page,
+  query: string,
+): Promise<SearchResultWeb[]> => {
   // console.log("Searching", page.url());
 
   if (page.url() == "about:blank") {
@@ -149,7 +175,7 @@ export const addSearchResults = async (
         },
       });
     } catch (err) {
-      console.error("failed to insert search result", err);
+      console.error("failed to insert search result:", err.message);
     }
   }
 };

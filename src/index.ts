@@ -9,7 +9,7 @@ import { botToken } from "./config";
 import { PuppeteerBlocker } from "@cliqz/adblocker-puppeteer";
 import {
   SearchResultWeb,
-  SearchWord,
+  SearchWordApi,
   addSearchResults,
   getSearchResult,
 } from "./search";
@@ -32,8 +32,8 @@ import {
     .use(Adblocker({ blockTrackers: true }))
     // .use(StealthPlugin())
     .launch({
-      headless: false,
-      // headless: "new",
+      // headless: false,
+      headless: "new",
       ignoreDefaultArgs: ["--mute-audio"],
       args: [
         '--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"',
@@ -304,6 +304,13 @@ import {
       // stop interval checking dom
       clearInterval(playerTimer);
 
+      // bypass "Leave site?"
+      await playerPage.click(`#play-pause-button[title="Pause"]:not([hidden])`);
+
+      // await page.evaluate(() => {
+      //   window.onbeforeunload = null;
+      // });
+
       // set finish
       if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
         await updateFinished(prisma, currentQueue);
@@ -353,48 +360,28 @@ import {
 
   let timer: NodeJS.Timeout | null = null;
   bot.on("inline_query", async (ctx) => {
-    // const result = [];
-    // Explicit usage
-
-    // console.log("inline hit", ctx.inlineQuery.query);
-
     if (ctx.inlineQuery.query == "") {
+      await ctx.answerInlineQuery([]);
       return;
     }
 
-    // if (isSeaching) {
-    //   return;
-    // }
-
-    // while (isSeaching) {
-    //   // do nothing
-    // }
-
-    // isSeaching = true;
+    if (ctx.inlineQuery.query.length < 3) {
+      await ctx.answerInlineQuery([]);
+      return;
+    }
 
     if (timer != null) {
       clearTimeout(timer);
     }
 
     timer = setTimeout(async () => {
-      console.log("real searching");
-
-      const searchPage: Page = await browser.newPage();
+      console.log(`Search for: ${ctx.inlineQuery.query}`);
 
       // search data
-      const searchResults = await SearchWord(searchPage, ctx.inlineQuery.query);
-
-      // close tab
-      await searchPage.close();
+      const searchResults = await SearchWordApi(ctx.inlineQuery.query);
 
       // save result
       addSearchResults(prisma, searchResults);
-
-      // console.log(ctx.inlineQuery);
-      // const id = new Date().getTime().toString();
-      // console.log(id);
-
-      // await ctx.telegram.answerInlineQuery(ctx.inlineQuery.id, result)
 
       // Using context shortcut
       await ctx.answerInlineQuery(
@@ -403,14 +390,19 @@ import {
             id: `${row.musicID}`,
             type: "article",
             title: row.title,
-            description: `${row.artist} • ${row.album} • ${row.duration} • ${row.total_play}`,
+            description: `${row.artist} • ${row.album} • ${row.duration}`,
             thumbnail_url: row.thumbnail,
             input_message_content: {
               photo_url: row.thumbnail,
               message_text: `${row.title} • ${row.artist} • ${row.album} • ${row.duration}`,
             },
             ...Markup.inlineKeyboard([
-              [Markup.button.callback("Play Next", `play-next-${row.musicID}`)],
+              [
+                Markup.button.callback(
+                  "Play Next",
+                  `play-this-next-${row.musicID}`,
+                ),
+              ],
               [
                 Markup.button.callback(
                   "Add to Queue",
@@ -421,21 +413,16 @@ import {
           }),
         ),
       );
-
-      // enable search
-      // isSeaching = false;
     }, 1500);
   });
 
-  bot.action(/^(play-next-)/g, async (ctx) => {
+  bot.action(/^(play-this-next-)/g, async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.editMessageReplyMarkup(undefined);
 
-    const musicID: string = ctx.match.input.split("play-next-")[1] || "";
-    // console.log("musicID", musicID);
+    const musicID: string = ctx.match.input.split("play-this-next-")[1] || "";
     if (musicID) {
       const sr = await getSearchResult(prisma, musicID);
-      // console.log("sr", sr);
       if (sr !== false) {
         addToPlayNext(prisma, sr);
       }
@@ -447,10 +434,8 @@ import {
     await ctx.editMessageReplyMarkup(undefined);
 
     const musicID: string = ctx.match.input.split("add-to-queue-")[1] || "";
-    // console.log("add-to-queue-", musicID);
     if (musicID) {
       const sr = await getSearchResult(prisma, musicID);
-      // console.log("sr", sr);
       if (sr !== false) {
         addQueue(prisma, sr);
       }
