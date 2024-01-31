@@ -8,33 +8,43 @@ datasource db {
 }
 
 model Queue {
-  id                Int       @id @default(autoincrement())
-  musicID           String    
-  title             String
-  artist            String
-  thumbnail         String
-  album             String?
-  year              String?
-  duration          String
-  duration_second   Int       @default(0)
-  total_play        String
-  playedAt          DateTime?
-  finishedAt        DateTime?
-  isPlaying         Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @default(now())
+  id              Int       @id @default(autoincrement())
+  musicID         String
+  title           String
+  artist          String
+  thumbnail       String
+  album           String?
+  duration        String
+  duration_second Int       @default(0)
+  total_play      String
+  playedAt        DateTime?
+  finishedAt      DateTime?
+  isPlaying       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+  year            String?
 }
 
 model SearchResult {
-  id                Int       @id @default(autoincrement())
-  musicID           String    @unique
-  title             String
-  artist            String
-  thumbnail         String
-  album             String?
-  duration          String
-  duration_second   Int       @default(0)
-  total_play        String
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @default(now())
+  id              Int      @id @default(autoincrement())
+  musicID         String   @unique
+  title           String
+  artist          String
+  thumbnail       String
+  album           String?
+  duration        String
+  duration_second Int      @default(0)
+  total_play      String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now())
+}
+
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  chatID    BigInt   @unique
+  username  String?
+  name      String
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
 }

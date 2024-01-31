@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer-extra";
 import { GetCurrentPlaying, PlayDirectURL, PlayFromHome } from "./player";
 import { Markup, Telegraf } from "telegraf";
-import { PrismaClient, Queue } from "@prisma/client";
+import { PrismaClient, Queue, Subscriber } from "@prisma/client";
 import { initCookies } from "./cookies";
 import Adblocker from "puppeteer-extra-plugin-adblocker";
 import { Browser, Page } from "puppeteer";
@@ -23,6 +23,13 @@ import {
   updateIsPlaying,
   updatePlayedAt,
 } from "./queue";
+import {
+  getSubscribedList,
+  getSubscriberByChatID,
+  subscribe,
+  unsubscribe,
+} from "./subscriber";
+import dayjs, { type Dayjs } from "dayjs";
 
 (async () => {
   const prisma = new PrismaClient();
@@ -96,8 +103,25 @@ import {
     }
   });
 
-  const sendMessage = async (message) => {
-    return bot.telegram.sendMessage(233041497, message);
+  // const sendMessage = async (message) => {
+  //   return bot.telegram.sendMessage(233041497, message);
+  // };
+
+  const subscribersID: string[] = [];
+  let expiredCache: Dayjs = dayjs();
+  const sendMessageToSubscriber = async (message) => {
+    if (expiredCache.isBefore(dayjs())) {
+      const subscribers = await getSubscribedList(prisma);
+      subscribersID.length = 0;
+      for (let i = 0; i < subscribers.length; i++) {
+        const s = subscribers[i];
+        subscribersID.push(s.chatID.toString());
+      }
+      expiredCache = dayjs().add(5, "minutes");
+    }
+    subscribersID.forEach((chatID) => {
+      bot.telegram.sendMessage(chatID, message);
+    });
   };
 
   let playerTimer: NodeJS.Timeout;
@@ -195,7 +219,7 @@ import {
     console.log(
       `PlayCurrentSong Playing ${currentQueue.title} by ${currentQueue.artist}`,
     );
-    await sendMessage(
+    await sendMessageToSubscriber(
       `Playing ${currentQueue.title} by ${currentQueue.artist}`,
     );
   };
@@ -355,6 +379,70 @@ import {
       );
     } else {
       ctx.reply("No queue");
+    }
+  });
+
+  bot.command("subscribe", async (ctx) => {
+    const subscriber: Subscriber | null = await getSubscriberByChatID(
+      prisma,
+      ctx.chat.id,
+    );
+    if (subscriber !== null) {
+      await ctx.reply("This chat already subscribed", {
+        parse_mode: "Markdown",
+      });
+    } else {
+      await subscribe(prisma, {
+        chatID: ctx.chat.id,
+        username: ctx.message.from.username ?? "",
+        name:
+          ctx.chat.type == "private"
+            ? `${ctx.message.from.first_name}${ctx.message.from.last_name ? ` ${ctx.message.from.last_name}` : ""}`
+            : ctx.chat.title,
+        type: ctx.chat.type,
+      });
+
+      await ctx.reply("This chat is subscribed to bot", {
+        parse_mode: "Markdown",
+      });
+    }
+  });
+
+  bot.command("unsubscribe", async (ctx) => {
+    const subscriber: Subscriber | null = await getSubscriberByChatID(
+      prisma,
+      ctx.chat.id,
+    );
+    if (subscriber === null) {
+      await ctx.reply("This chat is not subscribed", {
+        parse_mode: "Markdown",
+      });
+    } else {
+      await unsubscribe(prisma, subscriber);
+
+      await ctx.reply("This chat is no longer subscribed to bot", {
+        parse_mode: "Markdown",
+      });
+    }
+  });
+
+  bot.command("subscriber", async (ctx) => {
+    const subscribers: Subscriber[] = await getSubscribedList(prisma);
+    if (subscribers.length === 0) {
+      await ctx.reply("No Subscriber", {
+        parse_mode: "Markdown",
+      });
+    } else {
+      await ctx.reply(
+        subscribers
+          .map((row, i) => {
+            return `${i + 1}. [[${row.type}]] ${row.type == "private" ? `[${row.name}](tg://user?id=${row.chatID})` : `${row.name}`}`;
+          })
+          .join("\n"),
+        {
+          parse_mode: "Markdown",
+        },
+      );
     }
   });
 
