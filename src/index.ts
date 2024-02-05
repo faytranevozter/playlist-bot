@@ -30,6 +30,7 @@ import {
   unsubscribe,
 } from "./subscriber";
 import dayjs, { type Dayjs } from "dayjs";
+import { Player } from "./events/player";
 
 (async () => {
   const prisma = new PrismaClient();
@@ -48,6 +49,8 @@ import dayjs, { type Dayjs } from "dayjs";
       ],
       defaultViewport: null,
     });
+
+  new Player();
 
   // get pages
   const pages: Page[] = await browser.pages();
@@ -109,7 +112,7 @@ import dayjs, { type Dayjs } from "dayjs";
 
   const subscribersID: string[] = [];
   let expiredCache: Dayjs = dayjs();
-  const sendMessageToSubscriber = async (message) => {
+  const sendMessageToSubscriber = async (message: string) => {
     if (expiredCache.isBefore(dayjs())) {
       const subscribers = await getSubscribedList(prisma);
       subscribersID.length = 0;
