@@ -49,6 +49,3 @@ model Subscriber {
   updatedAt DateTime @default(now())
 }
 
-model Test {
-  id Int @id @default(autoincrement())
-}
