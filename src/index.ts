@@ -1,11 +1,10 @@
 import puppeteer from "puppeteer-extra";
 import { GetCurrentPlaying, PlayDirectURL, PlayFromHome } from "./player";
-import { Markup, Telegraf } from "telegraf";
+import { Markup } from "telegraf";
 import { PrismaClient, Queue, Subscriber } from "@prisma/client";
 import { initCookies } from "./cookies";
 import Adblocker from "puppeteer-extra-plugin-adblocker";
 import { Browser, Page } from "puppeteer";
-import { botToken } from "./config";
 import { PuppeteerBlocker } from "@cliqz/adblocker-puppeteer";
 import {
   SearchResultWeb,
@@ -30,6 +29,8 @@ import {
   unsubscribe,
 } from "./subscriber";
 import dayjs, { type Dayjs } from "dayjs";
+import { Player } from "./events/player";
+import { useBot } from "./libs/bot";
 
 (async () => {
   const prisma = new PrismaClient();
@@ -49,6 +50,8 @@ import dayjs, { type Dayjs } from "dayjs";
       defaultViewport: null,
     });
 
+  new Player();
+
   // get pages
   const pages: Page[] = await browser.pages();
   let playerPage: Page = pages[0];
@@ -61,7 +64,7 @@ import dayjs, { type Dayjs } from "dayjs";
   initCookies();
 
   // init BOT
-  const bot = new Telegraf(botToken);
+  const bot = useBot();
   bot.start((ctx) => ctx.reply("Welcome"));
 
   // define status player
@@ -109,7 +112,7 @@ import dayjs, { type Dayjs } from "dayjs";
 
   const subscribersID: string[] = [];
   let expiredCache: Dayjs = dayjs();
-  const sendMessageToSubscriber = async (message) => {
+  const sendMessageToSubscriber = async (message: string) => {
     if (expiredCache.isBefore(dayjs())) {
       const subscribers = await getSubscribedList(prisma);
       subscribersID.length = 0;
