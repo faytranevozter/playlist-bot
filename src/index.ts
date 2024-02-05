@@ -1,11 +1,10 @@
 import puppeteer from "puppeteer-extra";
 import { GetCurrentPlaying, PlayDirectURL, PlayFromHome } from "./player";
-import { Markup, Telegraf } from "telegraf";
+import { Markup } from "telegraf";
 import { PrismaClient, Queue, Subscriber } from "@prisma/client";
 import { initCookies } from "./cookies";
 import Adblocker from "puppeteer-extra-plugin-adblocker";
 import { Browser, Page } from "puppeteer";
-import { botToken } from "./config";
 import { PuppeteerBlocker } from "@cliqz/adblocker-puppeteer";
 import {
   SearchResultWeb,
@@ -31,6 +30,7 @@ import {
 } from "./subscriber";
 import dayjs, { type Dayjs } from "dayjs";
 import { Player } from "./events/player";
+import { useBot } from "./libs/bot";
 
 (async () => {
   const prisma = new PrismaClient();
@@ -64,7 +64,7 @@ import { Player } from "./events/player";
   initCookies();
 
   // init BOT
-  const bot = new Telegraf(botToken);
+  const bot = useBot();
   bot.start((ctx) => ctx.reply("Welcome"));
 
   // define status player
