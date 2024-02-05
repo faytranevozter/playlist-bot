@@ -5,7 +5,7 @@ import {
   convertDuration,
   convertVideoIDtoMusicID,
   formatDuration,
-} from "./util/youtube";
+} from "../util/youtube";
 
 export interface SearchResultWeb {
   musicID: string;
@@ -174,7 +174,7 @@ export const addSearchResults = async (
           total_play: sr.total_play,
         },
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error("failed to insert search result:", err.message);
     }
   }

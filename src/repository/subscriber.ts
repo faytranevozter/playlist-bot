@@ -32,7 +32,7 @@ export const subscribe = async (
     });
 
     return [true, ""];
-  } catch (error) {
+  } catch (error: any) {
     return [false, error.message];
   }
 };
@@ -49,7 +49,7 @@ export const unsubscribe = async (
     });
 
     return [true, ""];
-  } catch (error) {
+  } catch (error: any) {
     return [false, error.message];
   }
 };

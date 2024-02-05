@@ -9,4 +9,8 @@ declare global {
   var currentQueue: Queue;
   var browsers: Browser;
   var bot: Telegraf;
+  var playerTimer: NodeJS.Timeout;
+  var currentTitle: string | null;
+  var newTitle: string | null;
+  var timer: NodeJS.Timeout;
 }

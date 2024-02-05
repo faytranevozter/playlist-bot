@@ -4,7 +4,7 @@ import fmtDuration from "format-duration";
 
 let ytmusic: YTMusic | null = null;
 
-export interface YoutubeMeta {
+export type YoutubeMeta = {
   title: string;
   author_name: string;
   author_url: string;
@@ -18,7 +18,7 @@ export interface YoutubeMeta {
   thumbnail_width: number;
   thumbnail_url: string;
   html: string;
-}
+};
 
 export const SearchSong = async (
   q: string,
