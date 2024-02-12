@@ -1,4 +1,4 @@
-import { Context, Markup } from "telegraf";
+import { Context, Markup, NarrowedContext } from "telegraf";
 import { Action, Command, On } from "../decorators/bot.decorator";
 import { PlayCurrentSong } from "../func/utils";
 import { PlayFromHome } from "../func/player";
@@ -22,7 +22,12 @@ import {
   subscribe,
   unsubscribe,
 } from "../repository/subscriber";
-import { InlineQueryResult } from "telegraf/typings/core/types/typegram";
+import {
+  CallbackQuery,
+  InlineQueryResult,
+  Message,
+  Update,
+} from "telegraf/typings/core/types/typegram";
 
 const prisma = new PrismaClient();
 
@@ -263,7 +268,13 @@ export class Player {
   }
 
   @Command("subscriber")
-  async subscriber(ctx: Context) {
+  async subscriber(
+    ctx: Context<{
+      message: Update.New & Update.NonChannel & Message.TextMessage;
+      update_id: number;
+    }> &
+      Omit<Context<Update>, keyof Context<Update>>,
+  ) {
     const subscribers: Subscriber[] = await getSubscribedList(prisma);
     if (subscribers.length === 0) {
       await ctx.reply("No Subscriber", {
@@ -284,92 +295,140 @@ export class Player {
   }
 
   @On("inline_query")
-  async inlineQuery(ctx: Context) {
-    {
-      if (ctx?.inlineQuery?.query == "") {
-        await ctx.answerInlineQuery([]);
-        return;
-      }
-
-      if (ctx?.inlineQuery && ctx?.inlineQuery.query?.length < 3) {
-        await ctx.answerInlineQuery([]);
-        return;
-      }
-
-      if (globalThis.timer != null) {
-        clearTimeout(globalThis.timer);
-      }
-
-      globalThis.timer = setTimeout(async () => {
-        console.log(`Search for: ${ctx?.inlineQuery?.query}`);
-
-        // search data
-        const searchResults = await SearchWordApi(
-          ctx?.inlineQuery?.query ?? "",
-        );
-
-        // save result
-        addSearchResults(prisma, searchResults);
-
-        // Using context shortcut
-        await ctx.answerInlineQuery(
-          searchResults.map(
-            (row: SearchResultWeb): InlineQueryResult => ({
-              id: `${row.musicID}`,
-              type: "article",
-              title: row.title,
-              description: `${row.artist} • ${row.album} • ${row.duration}`,
-              thumbnail_url: row.thumbnail,
-              input_message_content: {
-                photo_url: row.thumbnail,
-                message_text: `${row.title} • ${row.artist} • ${row.album} • ${row.duration}`,
-              },
-              ...Markup.inlineKeyboard([
-                [
-                  Markup.button.callback(
-                    "Play Next",
-                    `play-this-next-${row.musicID}`,
-                  ),
-                ],
-                [
-                  Markup.button.callback(
-                    "Add to Queue",
-                    `add-to-queue-${row.musicID}`,
-                  ),
-                ],
-              ]),
-            }),
-          ),
-        );
-      }, 1500);
+  async inlineQuery(
+    ctx: NarrowedContext<Context<Update>, Update.InlineQueryUpdate>,
+  ) {
+    if (ctx.inlineQuery.query == "") {
+      await ctx.answerInlineQuery([]);
+      return;
     }
+
+    if (ctx?.inlineQuery && ctx?.inlineQuery.query?.length < 3) {
+      await ctx.answerInlineQuery([]);
+      return;
+    }
+
+    if (globalThis.timer != null) {
+      clearTimeout(globalThis.timer);
+    }
+
+    globalThis.timer = setTimeout(async () => {
+      console.log(`Search for: ${ctx.inlineQuery.query}`);
+
+      // search data
+      const searchResults = await SearchWordApi(ctx.inlineQuery.query ?? "");
+
+      // save result
+      addSearchResults(prisma, searchResults);
+
+      // Using context shortcut
+      await ctx.answerInlineQuery(
+        searchResults.map(
+          (row: SearchResultWeb): InlineQueryResult => ({
+            id: `${row.musicID}`,
+            type: "article",
+            title: row.title,
+            description: `${row.artist} • ${row.album} • ${row.duration}`,
+            thumbnail_url: row.thumbnail,
+            input_message_content: {
+              photo_url: row.thumbnail,
+              message_text: `${row.title} by ${row.artist}`,
+            },
+            ...Markup.inlineKeyboard([
+              [
+                Markup.button.callback(
+                  "Play Next",
+                  `play-this-next-${ctx.from.id}:${row.musicID}`,
+                ),
+              ],
+              [
+                Markup.button.callback(
+                  "Add to Queue",
+                  `add-to-queue-${ctx.from.id}:${row.musicID}`,
+                ),
+              ],
+              [
+                Markup.button.callback(
+                  "Cancel",
+                  `cancel-${ctx.from.id}:${row.musicID}`,
+                ),
+              ],
+            ]),
+          }),
+        ),
+      );
+    }, 1500);
   }
 
   @Action(/^(add-to-queue-)/g)
-  async playNext(ctx: Context & { match: { input: string } }) {
-    await ctx.answerCbQuery();
-    await ctx.editMessageReplyMarkup(undefined);
-
-    const musicID: string = ctx.match.input.split("add-to-queue-")[1] || "";
-    if (musicID) {
-      const sr = await getSearchResult(prisma, musicID);
-      if (sr !== false) {
-        addQueue(prisma, sr);
+  async playNext(
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery>> &
+      Omit<Context<Update>, keyof Context<Update>> & {
+        match: RegExpExecArray;
+      },
+  ) {
+    const rawData: string = ctx.match.input.split("add-to-queue-")[1] || "";
+    const musicID: string = rawData.split(":")[1] || "";
+    const userID: number = parseInt(rawData.split(":")[0] || "");
+    const clickerID: number = ctx.callbackQuery.from.id;
+    if (clickerID !== userID) {
+      await ctx.answerCbQuery("Who TF r u!");
+    } else {
+      await ctx.answerCbQuery("Adding song to queue...");
+      if (musicID) {
+        const sr = await getSearchResult(prisma, musicID);
+        if (sr !== false) {
+          await ctx.editMessageText(
+            `${sr.title} by ${sr.artist} added to queue`,
+          );
+          addQueue(prisma, sr);
+        }
       }
     }
   }
 
   @Action(/^(play-this-next-)/g)
-  async playThisNext(ctx: Context & { match: { input: string } }) {
-    await ctx.answerCbQuery();
-    await ctx.editMessageReplyMarkup(undefined);
-
-    const musicID: string = ctx.match.input.split("play-this-next-")[1] || "";
-    if (musicID) {
-      const sr = await getSearchResult(prisma, musicID);
-      if (sr !== false) {
-        addToPlayNext(prisma, sr);
+  async playThisNext(
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery>> &
+      Omit<Context<Update>, keyof Context<Update>> & {
+        match: RegExpExecArray;
+      },
+  ) {
+    const rawData: string = ctx.match.input.split("play-this-next-")[1] || "";
+    const musicID: string = rawData.split(":")[1] || "";
+    const userID: number = parseInt(rawData.split(":")[0] || "");
+    const clickerID: number = ctx.callbackQuery.from.id;
+    if (clickerID !== userID) {
+      await ctx.answerCbQuery("Who TF r u!");
+    } else {
+      await ctx.answerCbQuery("Adding song to play next...");
+      if (musicID) {
+        const sr = await getSearchResult(prisma, musicID);
+        if (sr !== false) {
+          await ctx.editMessageText(
+            `${sr.title} by ${sr.artist} added to play next`,
+          );
+          addToPlayNext(prisma, sr);
+        }
       }
+    }
+  }
+
+  @Action(/^(cancel-)/g)
+  async cancel(
+    ctx: Context<Update.CallbackQueryUpdate<CallbackQuery>> &
+      Omit<Context<Update>, keyof Context<Update>> & {
+        match: RegExpExecArray;
+      },
+  ) {
+    const rawData: string = ctx.match.input.split("cancel-")[1] || "";
+    const userID: number = parseInt(rawData.split(":")[0] || "");
+    const clickerID: number = ctx.callbackQuery.from.id;
+    if (clickerID !== userID) {
+      await ctx.answerCbQuery("Who TF r u!");
+    } else {
+      await ctx.answerCbQuery("Canceling...");
+      await ctx.editMessageText("Canceled");
     }
   }
 }
