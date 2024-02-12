@@ -2,6 +2,7 @@ import puppeteer from "puppeteer-extra";
 import { PrismaClient } from "@prisma/client";
 import { initCookies } from "./func/cookies";
 import Adblocker from "puppeteer-extra-plugin-adblocker";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { Browser, Page } from "puppeteer";
 import { PuppeteerBlocker } from "@cliqz/adblocker-puppeteer";
 
@@ -16,10 +17,10 @@ import { useBot } from "./libs/bot";
   // Launch the browser
   const browser: Browser = await puppeteer
     .use(Adblocker({ blockTrackers: true }))
-    // .use(StealthPlugin())
+    .use(StealthPlugin())
     .launch({
-      headless: false,
-      // headless: "new",
+      // headless: false,
+      headless: "new",
       ignoreDefaultArgs: ["--mute-audio"],
       args: [
         '--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"',
