@@ -1,168 +1,113 @@
-import dayjs, { Dayjs } from "dayjs";
-import { GetCurrentPlaying, PlayDirectURL } from "../player";
-import {
-  getQueue,
-  updateFinished,
-  updateIsPlaying,
-  updatePlayedAt,
-} from "../queue";
-import { getSubscribedList } from "../subscriber";
-import { useBot } from "../libs/bot";
-import { PrismaClient } from "@prisma/client";
+import { Page } from "puppeteer";
+import { loadCookies, saveCookies } from "./cookies";
+import { Queue } from "@prisma/client";
+import { convertDuration, getMusicID } from "../util/youtube";
 
-const prisma = new PrismaClient();
+export interface PlayerState {
+  title: string;
+  author: string;
+  thumbnail: string;
+  url: string;
+  is_playing: boolean;
+  time: number;
+  duration: number;
+}
 
-let playerTimer: NodeJS.Timeout;
+interface Homepage {
+  QUICK_PICK: number;
+  TRENDING: number;
+}
 
-let currentTitle: string | null = null;
-let newTitle: string | null = null;
-const LocalMonitor = async () => {
+const mapHomepage: Homepage = {
+  QUICK_PICK: 0,
+  TRENDING: 8,
+};
+
+export const PlayDirectURL = async (page: Page, queue: Queue) => {
+  // load cookies
+  await loadCookies(page);
+
+  // go to page
+  await page.goto(`https://music.youtube.com/${queue.musicID}`);
+
+  // stupid case: wait for playing
+  await page.waitForSelector(".ytmusic-player-bar .title");
+
+  // save
+  await saveCookies(page);
+};
+
+export const PlayFromHome = async (page: Page, part: keyof Homepage) => {
+  // load cookies
+  await loadCookies(page);
+
+  if (page.url() == "about:blank") {
+    await page.goto("https://music.youtube.com/");
+  } else {
+    // click home
+    await page.click("tp-yt-paper-item:first-child");
+  }
+
   try {
-    if (playerPage.isClosed()) {
-      clearInterval(playerTimer);
-    }
+    await page.waitForSelector(
+      `#contents #items:nth-child(-n + ${mapHomepage[part] + 1}) #play-button:first-child`,
+    );
 
-    await playerPage.waitForSelector(".ytmusic-player-bar .title");
-    newTitle =
-      (await (
-        await playerPage.$(".ytmusic-player-bar .title")
-      )?.evaluate((el) => el.textContent || "")) || "";
-
-    // console.log(`"${currentTitle}"=="${newTitle}"`);
-
-    if (newTitle != currentTitle) {
-      // on really change
-      if (currentTitle !== null) {
-        // clear interval (stop monitoring)
-        clearInterval(playerTimer);
-
-        // wait for play mode, make sure is playing
-        await playerPage.waitForSelector(
-          `#play-pause-button[title="Pause"]:not([hidden])`,
-        );
-
-        // pause (prevent playing unwanted next song)
-        await playerPage.click(
-          `#play-pause-button[title="Pause"]:not([hidden])`,
-        );
-        // await playerPage.keyboard.press("Space");
-
-        // set finish
-        if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
-          await updateFinished(prisma, currentQueue);
-        }
-
-        // check next queue
-        const [nextExist, nextQueue] = await getQueue(prisma);
-        if (nextExist && nextQueue != null) {
-          // set currentQueue to nextQueue
-          currentQueue = nextQueue;
-
-          // update current title (it should the same even the source is different)
-          currentTitle = nextQueue.title;
-
-          // play current song with refresh
-          await PlayCurrentSong(true);
-        } else {
-          // wait for play mode, make sure is playing
-          await playerPage.waitForSelector(
-            `#play-pause-button[title="Play"]:not([hidden])`,
-          );
-          // resume
-          await playerPage.click(
-            `#play-pause-button[title="Play"]:not([hidden])`,
-          );
-
-          // change current play & currentTitle
-          currentQueue = await GetCurrentPlaying(playerPage);
-          currentTitle = currentQueue.title;
-
-          // send notification
-          sendNotificationCurrentPlaying();
-
-          // monitoring dom (again)
-          MonitoringEndSong();
-        }
-      } else {
-        currentTitle = newTitle;
-      }
-    }
+    await page.click(
+      `#contents #items:nth-child(-n + ${mapHomepage[part] + 1}) #play-button:first-child`,
+    );
   } catch (error) {
-    console.error("---------------");
-    console.error(error);
-    console.error("---------------");
-  }
-};
-
-const subscribersID: string[] = [];
-let expiredCache: Dayjs = dayjs();
-
-const bot = useBot();
-
-const sendMessageToSubscriber = async (message: string) => {
-  if (expiredCache.isBefore(dayjs())) {
-    const subscribers = await getSubscribedList(prisma);
-    subscribersID.length = 0;
-    for (let i = 0; i < subscribers.length; i++) {
-      const s = subscribers[i];
-      subscribersID.push(s.chatID.toString());
-    }
-    expiredCache = dayjs().add(5, "minutes");
-  }
-  subscribersID.forEach((chatID) => {
-    bot.telegram.sendMessage(chatID, message);
-  });
-};
-
-const MonitoringEndSong = () => {
-  // console.log("MonitoringEndSong: monitoring dom");
-  if (playerTimer != null) {
-    clearInterval(playerTimer);
+    console.error("something went wrong when playing music");
   }
 
-  playerTimer = setInterval(LocalMonitor, 500);
+  // save
+  await saveCookies(page);
 };
 
-const sendNotificationCurrentPlaying = async () => {
-  console.log(
-    `PlayCurrentSong Playing ${currentQueue.title} by ${currentQueue.artist}`,
+export const GetCurrentPlaying = async (page: Page): Promise<Queue> => {
+  await page.waitForSelector(".ytmusic-player-bar .title");
+
+  const title = await page.$eval(
+    ".ytmusic-player-bar .title",
+    (el) => el.textContent || "",
   );
-  await sendMessageToSubscriber(
-    `Playing ${currentQueue.title} by ${currentQueue.artist}`,
+
+  const thumbnail = await page.$eval(
+    ".thumbnail-image-wrapper.ytmusic-player-bar img",
+    (el) => el.getAttribute("src") || "",
   );
-};
 
-const PlayCurrentSong = async (openWithRefreshPage: boolean) => {
-  if (playerPage.isClosed()) {
-    // open new tab
-    playerPage = await browsers.newPage();
-  }
+  await page.waitForSelector(".ytmusic-player-bar .byline");
+  const meta = await page.$eval(
+    ".ytmusic-player-bar .byline",
+    (el) => el.getAttribute("title") || "",
+  );
 
-  // playing song
-  if (openWithRefreshPage) {
-    // open browser
-    await PlayDirectURL(playerPage, currentQueue);
-  }
+  const duration = await page.$eval(
+    "#progress-bar",
+    (el) => (el as HTMLProgressElement).ariaValueMax || "",
+  );
 
-  // update is playing (global variable)
-  statusPlay = "playing";
+  const url = await page.$eval(
+    `[data-sessionlink="feature=player-title"]`,
+    (el) => el.getAttribute("href") || "",
+  );
 
-  // update db
-  if (currentQueue.id > 0) {
-    await updateIsPlaying(prisma, currentQueue, true);
-    await updatePlayedAt(prisma, currentQueue);
-  }
-
-  // send notification
-  sendNotificationCurrentPlaying();
-
-  // monitoring dom on change song (after song end)
-  MonitoringEndSong();
-};
-
-export {
-  LocalMonitor,
-  MonitoringEndSong,
-  sendNotificationCurrentPlaying,
-  PlayCurrentSong,
+  return {
+    id: -1,
+    musicID: getMusicID(url),
+    title,
+    artist: (meta || "").split("•")[0].trim(),
+    album: (meta || "").split("•")[1].trim(),
+    year: (meta || "").split("•")[2].trim(),
+    thumbnail,
+    duration,
+    duration_second: convertDuration(duration),
+    total_play: "",
+    isPlaying: false,
+    playedAt: null,
+    finishedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 };

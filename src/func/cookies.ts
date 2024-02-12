@@ -1,6 +1,6 @@
 import { Page } from "puppeteer";
 import fs from "fs";
-import { cookiePath } from "./config";
+import { cookiePath } from "../config/config";
 
 export const initCookies = () => {
   if (!fs.existsSync(cookiePath)) {
