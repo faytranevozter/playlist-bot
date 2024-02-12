@@ -78,6 +78,15 @@ import { useBot } from "./libs/bot";
   const bot = useBot();
   bot.start((ctx) => ctx.reply("Welcome"));
 
+  bot.telegram.setMyCommands([
+    { command: "play", description: "Play a music" },
+    { command: "pause", description: "You know this" },
+    { command: "queue", description: "Queue list" },
+    { command: "info", description: "Get info current playing" },
+    { command: "subscribe", description: "Subscribe chat to bot" },
+    { command: "unsubscribe", description: "Unsubscribe chat to bot" },
+  ]);
+
   new Player();
 
   // define status player
