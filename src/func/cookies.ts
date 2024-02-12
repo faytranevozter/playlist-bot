@@ -17,3 +17,7 @@ export const loadCookies = async (page: Page) => {
   const cookies = JSON.parse(fs.readFileSync(cookiePath).toString());
   await page.setCookie(...cookies);
 };
+
+export const getCookies = () => {
+  return fs.readFileSync(cookiePath).toString();
+};

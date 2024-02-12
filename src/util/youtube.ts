@@ -1,6 +1,7 @@
 import getYouTubeID from "get-youtube-id";
 import YTMusic, { SongDetailed } from "ytmusic-api";
 import fmtDuration from "format-duration";
+import { getCookies } from "../func/cookies";
 
 let ytmusic: YTMusic | null = null;
 
@@ -26,7 +27,10 @@ export const SearchSong = async (
   if (ytmusic === null) {
     console.log("init");
     ytmusic = new YTMusic();
-    await ytmusic.initialize();
+
+    await ytmusic.initialize({
+      cookies: getCookies(),
+    });
   }
 
   return ytmusic.searchSongs(q);
