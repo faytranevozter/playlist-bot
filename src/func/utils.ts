@@ -12,70 +12,71 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-let playerTimer: NodeJS.Timeout;
-
-let currentTitle: string | null = null;
-let newTitle: string | null = null;
 const LocalMonitor = async () => {
   try {
-    if (playerPage.isClosed()) {
-      clearInterval(playerTimer);
+    if (globalThis.playerPage.isClosed()) {
+      clearInterval(globalThis.playerTimer);
     }
 
-    await playerPage.waitForSelector(".ytmusic-player-bar .title");
-    newTitle =
+    await globalThis.playerPage.waitForSelector(".ytmusic-player-bar .title");
+    globalThis.newTitle =
       (await (
-        await playerPage.$(".ytmusic-player-bar .title")
+        await globalThis.playerPage.$(".ytmusic-player-bar .title")
       )?.evaluate((el) => el.textContent || "")) || "";
 
-    // console.log(`"${currentTitle}"=="${newTitle}"`);
+    // console.log(`"${globalThis.currentTitle}"=="${globalThis.newTitle}"`);
 
-    if (newTitle != currentTitle) {
+    if (globalThis.newTitle != globalThis.currentTitle) {
       // on really change
-      if (currentTitle !== null) {
+      if (globalThis.currentTitle !== null) {
         // clear interval (stop monitoring)
-        clearInterval(playerTimer);
+        clearInterval(globalThis.playerTimer);
 
         // wait for play mode, make sure is playing
-        await playerPage.waitForSelector(
+        await globalThis.playerPage.waitForSelector(
           `#play-pause-button[title="Pause"]:not([hidden])`,
         );
 
         // pause (prevent playing unwanted next song)
-        await playerPage.click(
+        await globalThis.playerPage.click(
           `#play-pause-button[title="Pause"]:not([hidden])`,
         );
-        // await playerPage.keyboard.press("Space");
+        // await globalThis.playerPage.keyboard.press("Space");
 
         // set finish
-        if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
-          await updateFinished(prisma, currentQueue);
+        if (
+          globalThis.currentQueue.id > 0 &&
+          globalThis.currentQueue.finishedAt == null
+        ) {
+          await updateFinished(prisma, globalThis.currentQueue);
         }
 
         // check next queue
         const [nextExist, nextQueue] = await getQueue(prisma);
         if (nextExist && nextQueue != null) {
-          // set currentQueue to nextQueue
-          currentQueue = nextQueue;
+          // set globalThis.currentQueue to nextQueue
+          globalThis.currentQueue = nextQueue;
 
           // update current title (it should the same even the source is different)
-          currentTitle = nextQueue.title;
+          globalThis.currentTitle = nextQueue.title;
 
           // play current song with refresh
           await PlayCurrentSong(true);
         } else {
           // wait for play mode, make sure is playing
-          await playerPage.waitForSelector(
+          await globalThis.playerPage.waitForSelector(
             `#play-pause-button[title="Play"]:not([hidden])`,
           );
           // resume
-          await playerPage.click(
+          await globalThis.playerPage.click(
             `#play-pause-button[title="Play"]:not([hidden])`,
           );
 
-          // change current play & currentTitle
-          currentQueue = await GetCurrentPlaying(playerPage);
-          currentTitle = currentQueue.title;
+          // change current play & globalThis.currentTitle
+          globalThis.currentQueue = await GetCurrentPlaying(
+            globalThis.playerPage,
+          );
+          globalThis.currentTitle = globalThis.currentQueue.title;
 
           // send notification
           sendNotificationCurrentPlaying();
@@ -84,7 +85,7 @@ const LocalMonitor = async () => {
           MonitoringEndSong();
         }
       } else {
-        currentTitle = newTitle;
+        globalThis.currentTitle = globalThis.newTitle;
       }
     }
   } catch (error) {
@@ -116,41 +117,41 @@ const sendMessageToSubscriber = async (message: string) => {
 
 const MonitoringEndSong = () => {
   // console.log("MonitoringEndSong: monitoring dom");
-  if (playerTimer != null) {
-    clearInterval(playerTimer);
+  if (globalThis.playerTimer != null) {
+    clearInterval(globalThis.playerTimer);
   }
 
-  playerTimer = setInterval(LocalMonitor, 500);
+  globalThis.playerTimer = setInterval(LocalMonitor, 500);
 };
 
 const sendNotificationCurrentPlaying = async () => {
   console.log(
-    `PlayCurrentSong Playing ${currentQueue.title} by ${currentQueue.artist}`,
+    `PlayCurrentSong Playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist}`,
   );
   await sendMessageToSubscriber(
-    `Playing ${currentQueue.title} by ${currentQueue.artist}`,
+    `Playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist}`,
   );
 };
 
 const PlayCurrentSong = async (openWithRefreshPage: boolean) => {
-  if (playerPage.isClosed()) {
+  if (globalThis.playerPage.isClosed()) {
     // open new tab
-    playerPage = await browsers.newPage();
+    globalThis.playerPage = await browsers.newPage();
   }
 
   // playing song
   if (openWithRefreshPage) {
     // open browser
-    await PlayDirectURL(playerPage, currentQueue);
+    await PlayDirectURL(globalThis.playerPage, globalThis.currentQueue);
   }
 
   // update is playing (global variable)
   statusPlay = "playing";
 
   // update db
-  if (currentQueue.id > 0) {
-    await updateIsPlaying(prisma, currentQueue, true);
-    await updatePlayedAt(prisma, currentQueue);
+  if (globalThis.currentQueue.id > 0) {
+    await updateIsPlaying(prisma, globalThis.currentQueue, true);
+    await updatePlayedAt(prisma, globalThis.currentQueue);
   }
 
   // send notification

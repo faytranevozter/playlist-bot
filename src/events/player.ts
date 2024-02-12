@@ -29,19 +29,21 @@ const prisma = new PrismaClient();
 export class Player {
   @Command("pause")
   async pause(ctx: Context) {
-    if (statusPlay !== "playing") {
+    if (globalThis.statusPlay !== "playing") {
       ctx.reply("NOTHING PLAYED");
       return;
     }
     try {
       // wait for play mode, make sure is playing
-      await playerPage.waitForSelector(
+      await globalThis.playerPage.waitForSelector(
         `#play-pause-button[title="Pause"]:not([hidden])`,
       );
       // pause (prevent playing unwanted next song)
-      await playerPage.click(`#play-pause-button[title="Pause"]:not([hidden])`);
+      await globalThis.playerPage.click(
+        `#play-pause-button[title="Pause"]:not([hidden])`,
+      );
       // update status play
-      statusPlay = "paused";
+      globalThis.statusPlay = "paused";
       ctx.reply("PAUSED");
     } catch (error) {
       ctx.reply("Failed to pause");
@@ -50,23 +52,23 @@ export class Player {
 
   @Command("play")
   async play(ctx: Context) {
-    if (statusPlay == "playing") {
+    if (globalThis.statusPlay == "playing") {
       ctx.reply("ITS CURRENTLY PLAYING");
       return;
-    } else if (statusPlay == "paused") {
+    } else if (globalThis.statusPlay == "paused") {
       try {
         // wait for play mode, make sure is playing
-        await playerPage.waitForSelector(
+        await globalThis.playerPage.waitForSelector(
           `#play-pause-button[title="Play"]:not([hidden])`,
         );
 
         // pause (prevent playing unwanted next song)
-        await playerPage.click(
+        await globalThis.playerPage.click(
           `#play-pause-button[title="Play"]:not([hidden])`,
         );
 
         // update status play
-        statusPlay = "playing";
+        globalThis.statusPlay = "playing";
 
         ctx.reply("RESUMING PLAYER");
       } catch (error) {
@@ -80,24 +82,26 @@ export class Player {
 
   @Command("info")
   info(ctx: Context) {
-    if (statusPlay !== "playing") {
+    if (globalThis.statusPlay !== "playing") {
       ctx.reply("NOTHING PLAYED");
       return;
     }
 
-    ctx.reply(`Now playing ${currentQueue.title} by ${currentQueue.artist}`);
+    ctx.reply(
+      `Now playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist}`,
+    );
   }
 
   @Command("trending")
   trending(ctx: Context) {
-    PlayFromHome(playerPage, "TRENDING");
+    PlayFromHome(globalThis.playerPage, "TRENDING");
     ctx.reply("Playing from trending");
   }
 
   @Command("quick_pick")
   quickPick(ctx: Context) {
     ctx.reply("Playing from quick pick");
-    PlayFromHome(playerPage, "QUICK_PICK");
+    PlayFromHome(globalThis.playerPage, "QUICK_PICK");
   }
 
   @Command("queue")
@@ -123,7 +127,7 @@ export class Player {
   @Command("next")
   async next(ctx: Context) {
     {
-      if (statusPlay !== "playing") {
+      if (globalThis.statusPlay !== "playing") {
         ctx.reply("NOTHING PLAYED");
         return;
       }
@@ -146,8 +150,11 @@ export class Player {
         // });
 
         // set finish
-        if (currentQueue.id > 0 && currentQueue.finishedAt == null) {
-          await updateFinished(prisma, currentQueue);
+        if (
+          globalThis.currentQueue.id > 0 &&
+          globalThis.currentQueue.finishedAt == null
+        ) {
+          await updateFinished(prisma, globalThis.currentQueue);
         }
 
         // set currentQueue to nextQueue
