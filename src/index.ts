@@ -24,11 +24,44 @@ import { useBot } from "./libs/bot";
       args: [
         '--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"',
         "--autoplay-policy=no-user-gesture-required",
+        "--autoplay-policy=user-gesture-required",
+        "--disable-background-networking",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-breakpad",
+        "--disable-client-side-phishing-detection",
+        "--disable-component-update",
+        "--disable-default-apps",
+        "--disable-dev-shm-usage",
+        "--disable-domain-reliability",
+        "--disable-extensions",
+        "--disable-features=AudioServiceOutOfProcess",
+        "--disable-hang-monitor",
+        "--disable-ipc-flooding-protection",
+        "--disable-notifications",
+        "--disable-offer-store-unmasked-wallet-cards",
+        "--disable-popup-blocking",
+        "--disable-print-preview",
+        "--disable-prompt-on-repost",
+        "--disable-renderer-backgrounding",
+        "--disable-setuid-sandbox",
+        "--disable-speech-api",
+        "--disable-sync",
+        "--hide-scrollbars",
+        "--ignore-gpu-blacklist",
+        "--metrics-recording-only",
+        "--mute-audio",
+        "--no-default-browser-check",
+        "--no-first-run",
+        "--no-pings",
+        "--no-sandbox",
+        "--no-zygote",
+        "--password-store=basic",
+        "--use-gl=swiftshader",
+        "--use-mock-keychain",
       ],
       defaultViewport: null,
     });
-
-  new Player();
 
   // get pages
   const pages: Page[] = await browser.pages();
@@ -44,6 +77,18 @@ import { useBot } from "./libs/bot";
   // init BOT
   const bot = useBot();
   bot.start((ctx) => ctx.reply("Welcome"));
+
+  bot.telegram.setMyCommands([
+    { command: "play", description: "Play a music" },
+    { command: "pause", description: "You know this" },
+    { command: "queue", description: "Queue list" },
+    { command: "info", description: "Get info current playing" },
+    { command: "lyrics", description: "Get lyrics from current playing" },
+    { command: "subscribe", description: "Subscribe chat to bot" },
+    { command: "unsubscribe", description: "Unsubscribe chat to bot" },
+  ]);
+
+  new Player();
 
   // define status player
   globalThis.statusPlay = "idle";

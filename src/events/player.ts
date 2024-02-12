@@ -92,6 +92,46 @@ export class Player {
     );
   }
 
+  @Command("lyrics")
+  async lyrics(ctx: Context) {
+    if (globalThis.statusPlay !== "playing") {
+      ctx.reply("NOTHING PLAYED");
+      return;
+    }
+
+    await globalThis.playerPage.waitForSelector(
+      ".tab-header.style-scope.ytmusic-player-page:nth-of-type(2)",
+    );
+
+    let lyrics = "Lyrics not available";
+    if (
+      (await globalThis.playerPage.$(
+        ".tab-header.style-scope.ytmusic-player-page:nth-of-type(2):not([disabled])",
+      )) !== null
+    ) {
+      await globalThis.playerPage.click(
+        ".tab-header.style-scope.ytmusic-player-page:nth-of-type(2)",
+      );
+      const lyricEl = await globalThis.playerPage.waitForSelector(
+        ".non-expandable.description.ytmusic-description-shelf-renderer",
+      );
+
+      lyrics = (await lyricEl?.evaluate((el) => el.textContent)) || lyrics;
+
+      const lyricDescEl = await globalThis.playerPage.waitForSelector(
+        ".footer.ytmusic-description-shelf-renderer",
+      );
+      const lyricsDesc = await lyricDescEl?.evaluate((el) => el.textContent);
+      if (lyricsDesc) {
+        lyrics += `\n\n<code>${lyricsDesc}</code>`;
+      }
+    }
+
+    ctx.reply(lyrics, {
+      parse_mode: "HTML",
+    });
+  }
+
   @Command("trending")
   trending(ctx: Context) {
     PlayFromHome(globalThis.playerPage, "TRENDING");
