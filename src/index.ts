@@ -83,6 +83,7 @@ import { useBot } from "./libs/bot";
     { command: "pause", description: "You know this" },
     { command: "queue", description: "Queue list" },
     { command: "info", description: "Get info current playing" },
+    { command: "lyrics", description: "Get lyrics from current playing" },
     { command: "subscribe", description: "Subscribe chat to bot" },
     { command: "unsubscribe", description: "Unsubscribe chat to bot" },
   ]);
