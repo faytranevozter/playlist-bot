@@ -13,4 +13,7 @@ declare global {
   var currentTitle: string | null;
   var newTitle: string | null;
   var timer: NodeJS.Timeout;
+  var votePlayNextUsers: number[];
+  var votePlayNextMinimum: number;
+  var votePlayNextCount: number;
 }

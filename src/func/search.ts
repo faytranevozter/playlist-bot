@@ -175,7 +175,7 @@ export const addSearchResults = async (
         },
       });
     } catch (err: any) {
-      console.error("failed to insert search result:", err.message);
+      console.error("failed to insert search result:", sr.title);
     }
   }
 };

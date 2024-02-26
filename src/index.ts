@@ -82,6 +82,7 @@ import { useBot } from "./libs/bot";
   bot.telegram.setMyCommands([
     { command: "play", description: "Play a music" },
     { command: "pause", description: "You know this" },
+    { command: "vote_next", description: "Voting to play next" },
     { command: "queue", description: "Queue list" },
     { command: "info", description: "Get info current playing" },
     { command: "lyrics", description: "Get lyrics from current playing" },
@@ -92,6 +93,9 @@ import { useBot } from "./libs/bot";
   new Player();
 
   // define status player
+  globalThis.votePlayNextUsers = [];
+  globalThis.votePlayNextMinimum = 5;
+  globalThis.votePlayNextCount = 0;
   globalThis.statusPlay = "idle";
 
   // get queue if exist

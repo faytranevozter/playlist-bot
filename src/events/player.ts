@@ -93,7 +93,7 @@ export class Player {
     }
 
     ctx.reply(
-      `Now playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist}`,
+      `Now playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist} [${globalThis.currentQueue.duration}]`,
     );
   }
 
@@ -157,11 +157,11 @@ export class Player {
       await ctx.reply(
         queues
           .map((row, i) => {
-            return `${i + 1}. ${row.title} - ${row.artist}`;
+            return `${i + 1}. [${row.duration}] ${row.title} - ${row.artist}`;
           })
           .join("\n"),
         {
-          parse_mode: "Markdown",
+          parse_mode: "HTML",
         },
       );
     } else {
@@ -170,50 +170,19 @@ export class Player {
   }
 
   @Command("next")
-  async next(ctx: Context) {
+  async nextHandler(ctx: Context) {
     {
+      if (ctx.message?.from.id != 233041497) {
+        ctx.reply("HEI!!");
+        return;
+      }
+
       if (globalThis.statusPlay !== "playing") {
         ctx.reply("NOTHING PLAYED");
         return;
       }
 
-      // get next queue
-      const [nextExist, nextQueue] = await getQueue(prisma);
-
-      // if there is queue
-      if (nextExist && nextQueue !== null) {
-        // stop interval checking dom
-        clearInterval(globalThis.playerTimer);
-
-        // bypass "Leave site?"
-        await globalThis.playerPage.click(
-          `#play-pause-button[title="Pause"]:not([hidden])`,
-        );
-
-        // await page.evaluate(() => {
-        //   window.onbeforeunload = null;
-        // });
-
-        // set finish
-        if (
-          globalThis.currentQueue.id > 0 &&
-          globalThis.currentQueue.finishedAt == null
-        ) {
-          await updateFinished(prisma, globalThis.currentQueue);
-        }
-
-        // set currentQueue to nextQueue
-        globalThis.currentQueue = nextQueue;
-
-        // update current title (it should the same even the source is different)
-        globalThis.currentTitle = nextQueue.title;
-
-        // play current song with refresh
-        await PlayCurrentSong(true);
-      } else {
-        // click next song
-        await playerPage.click(`.ytmusic-player-bar[title="Next"]`);
-      }
+      this.next();
     }
   }
 
@@ -294,70 +263,102 @@ export class Player {
     }
   }
 
+  @Command("vote_next")
+  async vote_next(
+    ctx: Context<{
+      message: Update.New & Update.NonChannel & Message.TextMessage;
+      update_id: number;
+    }> &
+      Omit<Context<Update>, keyof Context<Update>>,
+  ) {
+    if (globalThis.statusPlay !== "playing") {
+      ctx.reply("NOTHING PLAYED");
+      return;
+    }
+
+    if (globalThis.votePlayNextCount <= globalThis.votePlayNextMinimum) {
+      if (!globalThis.votePlayNextUsers.includes(ctx.message?.from.id)) {
+        globalThis.votePlayNextCount++;
+        globalThis.votePlayNextUsers.push(ctx.message?.from.id);
+        ctx.reply(
+          `Voting for next ${globalThis.votePlayNextCount}/${globalThis.votePlayNextMinimum}`,
+        );
+      } else {
+        ctx.reply("You can only vote once per song!!");
+      }
+    } else {
+      this.next();
+    }
+  }
+
   @On("inline_query")
   async inlineQuery(
     ctx: NarrowedContext<Context<Update>, Update.InlineQueryUpdate>,
   ) {
-    if (ctx.inlineQuery.query == "") {
-      await ctx.answerInlineQuery([]);
-      return;
+    try {
+      if (ctx.inlineQuery.query == "") {
+        await ctx.answerInlineQuery([]);
+        return;
+      }
+
+      if (ctx?.inlineQuery && ctx?.inlineQuery.query?.length < 3) {
+        await ctx.answerInlineQuery([]);
+        return;
+      }
+
+      if (globalThis.timer != null) {
+        clearTimeout(globalThis.timer);
+      }
+
+      globalThis.timer = setTimeout(async () => {
+        console.log(`Search for: ${ctx.inlineQuery.query}`);
+
+        // search data
+        const searchResults = await SearchWordApi(ctx.inlineQuery.query ?? "");
+
+        // save result
+        addSearchResults(prisma, searchResults);
+
+        // Using context shortcut
+        await ctx.answerInlineQuery(
+          searchResults.map(
+            (row: SearchResultWeb): InlineQueryResult => ({
+              id: `${row.musicID}`,
+              type: "article",
+              title: row.title,
+              description: `${row.artist} • ${row.album} • ${row.duration}`,
+              thumbnail_url: row.thumbnail,
+              input_message_content: {
+                photo_url: row.thumbnail,
+                message_text: `${row.title} by ${row.artist}`,
+              },
+              ...Markup.inlineKeyboard([
+                // [
+                //   Markup.button.callback(
+                //     "Play Next",
+                //     `play-this-next-${ctx.from.id}:${row.musicID}`,
+                //   ),
+                // ],
+                [
+                  Markup.button.callback(
+                    "Add to Queue",
+                    `add-to-queue-${ctx.from.id}:${row.musicID}`,
+                  ),
+                  // ],
+                  // [
+                  Markup.button.callback(
+                    "Cancel",
+                    `cancel-${ctx.from.id}:${row.musicID}`,
+                  ),
+                ],
+              ]),
+            }),
+          ),
+        );
+      }, 1500);
+    } catch (error) {
+      console.error("inlineQuery:error:", error);
     }
-
-    if (ctx?.inlineQuery && ctx?.inlineQuery.query?.length < 3) {
-      await ctx.answerInlineQuery([]);
-      return;
-    }
-
-    if (globalThis.timer != null) {
-      clearTimeout(globalThis.timer);
-    }
-
-    globalThis.timer = setTimeout(async () => {
-      console.log(`Search for: ${ctx.inlineQuery.query}`);
-
-      // search data
-      const searchResults = await SearchWordApi(ctx.inlineQuery.query ?? "");
-
-      // save result
-      addSearchResults(prisma, searchResults);
-
-      // Using context shortcut
-      await ctx.answerInlineQuery(
-        searchResults.map(
-          (row: SearchResultWeb): InlineQueryResult => ({
-            id: `${row.musicID}`,
-            type: "article",
-            title: row.title,
-            description: `${row.artist} • ${row.album} • ${row.duration}`,
-            thumbnail_url: row.thumbnail,
-            input_message_content: {
-              photo_url: row.thumbnail,
-              message_text: `${row.title} by ${row.artist}`,
-            },
-            ...Markup.inlineKeyboard([
-              [
-                Markup.button.callback(
-                  "Play Next",
-                  `play-this-next-${ctx.from.id}:${row.musicID}`,
-                ),
-              ],
-              [
-                Markup.button.callback(
-                  "Add to Queue",
-                  `add-to-queue-${ctx.from.id}:${row.musicID}`,
-                ),
-              ],
-              [
-                Markup.button.callback(
-                  "Cancel",
-                  `cancel-${ctx.from.id}:${row.musicID}`,
-                ),
-              ],
-            ]),
-          }),
-        ),
-      );
-    }, 1500);
   }
 
   @Action(/^(add-to-queue-)/g)
@@ -367,23 +368,27 @@ export class Player {
         match: RegExpExecArray;
       },
   ) {
-    const rawData: string = ctx.match.input.split("add-to-queue-")[1] || "";
-    const musicID: string = rawData.split(":")[1] || "";
-    const userID: number = parseInt(rawData.split(":")[0] || "");
-    const clickerID: number = ctx.callbackQuery.from.id;
-    if (clickerID !== userID) {
-      await ctx.answerCbQuery("Who TF r u!");
-    } else {
-      await ctx.answerCbQuery("Adding song to queue...");
-      if (musicID) {
-        const sr = await getSearchResult(prisma, musicID);
-        if (sr !== false) {
-          await ctx.editMessageText(
-            `${sr.title} by ${sr.artist} added to queue`,
-          );
-          addQueue(prisma, sr);
+    try {
+      const rawData: string = ctx.match.input.split("add-to-queue-")[1] || "";
+      const musicID: string = rawData.split(":")[1] || "";
+      const userID: number = parseInt(rawData.split(":")[0] || "");
+      const clickerID: number = ctx.callbackQuery.from.id;
+      if (clickerID !== userID) {
+        await ctx.answerCbQuery("Who TF r u!");
+      } else {
+        await ctx.answerCbQuery("Adding song to queue...");
+        if (musicID) {
+          const sr = await getSearchResult(prisma, musicID);
+          if (sr !== false) {
+            await ctx.editMessageText(
+              `${sr.title} by ${sr.artist} added to queue`,
+            );
+            addQueue(prisma, sr);
+          }
         }
       }
+    } catch (err) {
+      console.error("playNext error:", err);
     }
   }
 
@@ -429,6 +434,46 @@ export class Player {
     } else {
       await ctx.answerCbQuery("Canceling...");
       await ctx.editMessageText("Canceled");
+    }
+  }
+
+  private async next() {
+    // get next queue
+    const [nextExist, nextQueue] = await getQueue(prisma);
+
+    // if there is queue
+    if (nextExist && nextQueue !== null) {
+      // stop interval checking dom
+      clearInterval(globalThis.playerTimer);
+
+      // bypass "Leave site?"
+      await globalThis.playerPage.click(
+        `#play-pause-button[title="Pause"]:not([hidden])`,
+      );
+
+      // await page.evaluate(() => {
+      //   window.onbeforeunload = null;
+      // });
+
+      // set finish
+      if (
+        globalThis.currentQueue.id > 0 &&
+        globalThis.currentQueue.finishedAt == null
+      ) {
+        await updateFinished(prisma, globalThis.currentQueue);
+      }
+
+      // set currentQueue to nextQueue
+      globalThis.currentQueue = nextQueue;
+
+      // update current title (it should the same even the source is different)
+      globalThis.currentTitle = nextQueue.title;
+
+      // play current song with refresh
+      await PlayCurrentSong(true);
+    } else {
+      // click next song
+      await playerPage.click(`.ytmusic-player-bar[title="Next"]`);
     }
   }
 }

@@ -116,6 +116,10 @@ const sendMessageToSubscriber = async (message: string) => {
 };
 
 const MonitoringEndSong = () => {
+  // reset vote count
+  globalThis.votePlayNextCount = 0;
+  globalThis.votePlayNextUsers = [];
+
   // console.log("MonitoringEndSong: monitoring dom");
   if (globalThis.playerTimer != null) {
     clearInterval(globalThis.playerTimer);
@@ -129,7 +133,7 @@ const sendNotificationCurrentPlaying = async () => {
     `PlayCurrentSong Playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist}`,
   );
   await sendMessageToSubscriber(
-    `Playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist}`,
+    `Playing ${globalThis.currentQueue.title} by ${globalThis.currentQueue.artist} [${globalThis.currentQueue.duration}]`,
   );
 };
 
