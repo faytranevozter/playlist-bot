@@ -16,12 +16,7 @@
     "jsx": "react",
     "module": "ESNext",
     "moduleResolution": "node",
-    "types": [
-      "src/global",
-    ]
+    "types": ["./src/global"],
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
 }

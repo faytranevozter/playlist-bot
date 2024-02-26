@@ -12,7 +12,7 @@
     "make:migration": "prisma migrate dev --name",
     "db:migrate": "prisma db pull",
     "db:generate": "prisma generate",
-    "start": "node  --watch build/index.js"
+    "start": "node build/index.js"
   },
   "keywords": [],
   "author": "",
