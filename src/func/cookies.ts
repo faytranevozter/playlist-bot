@@ -1,4 +1,4 @@
-import { Page } from "puppeteer";
+import { Page, Protocol } from "puppeteer";
 import fs from "fs";
 import { cookiePath } from "../config/config";
 
@@ -19,5 +19,8 @@ export const loadCookies = async (page: Page) => {
 };
 
 export const getCookies = () => {
-  return fs.readFileSync(cookiePath).toString();
+  const strJSON = fs.readFileSync(cookiePath).toString();
+  return JSON.parse(strJSON)
+    .map((v: Protocol.Network.Cookie) => `${v.name}=${v.value}`)
+    .join(";");
 };

@@ -4,3 +4,4 @@ node_modules
 cookies
 build
 bot.db
+cookie.json
