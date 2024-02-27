@@ -1,7 +1,7 @@
 import { Page } from "puppeteer";
 import { loadCookies, saveCookies } from "./cookies";
 import { Queue } from "@prisma/client";
-import { convertDuration, getMusicID } from "../util/youtube";
+import { formatDuration, getMusicID } from "../util/youtube";
 
 export interface PlayerState {
   title: string;
@@ -83,7 +83,7 @@ export const GetCurrentPlaying = async (page: Page): Promise<Queue> => {
     (el) => el.getAttribute("title") || "",
   );
 
-  const duration = await page.$eval(
+  const durationSeconds: string = await page.$eval(
     "#progress-bar",
     (el) => (el as HTMLProgressElement).ariaValueMax || "",
   );
@@ -101,8 +101,8 @@ export const GetCurrentPlaying = async (page: Page): Promise<Queue> => {
     album: (meta || "").split("•")[1].trim(),
     year: (meta || "").split("•")[2].trim(),
     thumbnail,
-    duration,
-    duration_second: convertDuration(duration),
+    duration: formatDuration(parseInt(durationSeconds)),
+    duration_second: parseInt(durationSeconds),
     total_play: "",
     isPlaying: false,
     playedAt: null,
