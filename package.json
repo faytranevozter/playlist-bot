@@ -1,7 +1,7 @@
 {
   "name": "playlist-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "Telegram bot for YouTube Music with playlist management, lyrics, and collaborative voting",
   "main": "index.js",
   "scripts": {
     "lint": "eslint ./src",
@@ -15,8 +15,11 @@
     "start": "node build/index.js"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": {
+    "name": "Fahrur Rifai",
+    "email": "mfahrurrifai@gmail.com"
+  },
+  "license": "MIT",
   "dependencies": {
     "@cliqz/adblocker-puppeteer": "^1.26.15",
     "@prisma/client": "5.8.1",
