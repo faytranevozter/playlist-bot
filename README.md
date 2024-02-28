@@ -78,7 +78,7 @@ Run the application:
 pnpm start # or npm start
 ```
 
-Usage
+## Usage
 
 1. Start a chat with your Telegram bot.
 1. Use the provided commands to control the playlist as described in the features section.
