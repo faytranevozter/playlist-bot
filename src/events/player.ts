@@ -276,19 +276,23 @@ export class Player {
       return;
     }
 
-    if (globalThis.votePlayNextCount <= globalThis.votePlayNextMinimum) {
-      if (!globalThis.votePlayNextUsers.includes(ctx.message?.from.id)) {
-        globalThis.votePlayNextCount++;
-        globalThis.votePlayNextUsers.push(ctx.message?.from.id);
-        ctx.reply(
-          `Voting for next ${globalThis.votePlayNextCount}/${globalThis.votePlayNextMinimum}`,
-        );
-      } else {
-        ctx.reply("You can only vote once per song!!");
-      }
-    } else {
-      this.next();
+    if (globalThis.votePlayNextUsers.includes(ctx.message?.from.id)) {
+      ctx.reply("You can only vote once per song!!");
+      return;
     }
+
+    globalThis.votePlayNextCount++;
+    globalThis.votePlayNextUsers.push(ctx.message?.from.id);
+
+    if (globalThis.votePlayNextCount < globalThis.votePlayNextMinimum) {
+      ctx.reply(
+        `Voting for next ${globalThis.votePlayNextCount}/${globalThis.votePlayNextMinimum}`,
+      );
+      return;
+    }
+
+    // next
+    this.next();
   }
 
   @On("inline_query")
