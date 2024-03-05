@@ -28,6 +28,8 @@ import {
   Message,
   Update,
 } from "telegraf/typings/core/types/typegram";
+import { addToHistory, getHistory } from "../func/history";
+import dayjs from "dayjs";
 
 const prisma = new PrismaClient();
 
@@ -300,6 +302,8 @@ export class Player {
     ctx: NarrowedContext<Context<Update>, Update.InlineQueryUpdate>,
   ) {
     try {
+      const userID = ctx.from.id;
+
       if (ctx.inlineQuery.query == "") {
         await ctx.answerInlineQuery([]);
         return;
@@ -340,19 +344,19 @@ export class Player {
                 // [
                 //   Markup.button.callback(
                 //     "Play Next",
-                //     `play-this-next-${ctx.from.id}:${row.musicID}`,
+                //     `play-this-next-${userID}:${row.musicID}`,
                 //   ),
                 // ],
                 [
                   Markup.button.callback(
                     "Add to Queue",
-                    `add-to-queue-${ctx.from.id}:${row.musicID}`,
+                    `add-to-queue-${userID}:${row.musicID}`,
                   ),
                   // ],
                   // [
                   Markup.button.callback(
                     "Cancel",
-                    `cancel-${ctx.from.id}:${row.musicID}`,
+                    `cancel-${userID}:${row.musicID}`,
                   ),
                 ],
               ]),
@@ -380,6 +384,15 @@ export class Player {
       if (clickerID !== userID) {
         await ctx.answerCbQuery("Who TF r u!");
       } else {
+        // check limit
+        const requestHistory = getHistory(userID);
+        if (requestHistory && requestHistory.suspendUntil.isAfter(dayjs())) {
+          await ctx.answerCbQuery(
+            `Limit exceeded. Wait ${requestHistory.suspendUntil.diff(dayjs(), "seconds")} second(s)`,
+          );
+          return;
+        }
+
         await ctx.answerCbQuery("Adding song to queue...");
         if (musicID) {
           const sr = await getSearchResult(prisma, musicID);
@@ -387,7 +400,12 @@ export class Player {
             await ctx.editMessageText(
               `${sr.title} by ${sr.artist} added to queue`,
             );
-            addQueue(prisma, sr);
+
+            const { queue } = await addQueue(prisma, sr);
+            if (queue) {
+              // add to request history
+              addToHistory(userID, queue);
+            }
           }
         }
       }
@@ -410,6 +428,15 @@ export class Player {
     if (clickerID !== userID) {
       await ctx.answerCbQuery("Who TF r u!");
     } else {
+      // check limit
+      const requestHistory = getHistory(userID);
+      if (requestHistory && requestHistory.suspendUntil.isAfter(dayjs())) {
+        await ctx.answerCbQuery(
+          `Limit exceeded. Wait ${requestHistory.suspendUntil.diff(dayjs(), "seconds")} second(s)`,
+        );
+        return;
+      }
+
       await ctx.answerCbQuery("Adding song to play next...");
       if (musicID) {
         const sr = await getSearchResult(prisma, musicID);
@@ -417,7 +444,12 @@ export class Player {
           await ctx.editMessageText(
             `${sr.title} by ${sr.artist} added to play next`,
           );
-          addToPlayNext(prisma, sr);
+
+          const { queue } = await addToPlayNext(prisma, sr);
+          if (queue) {
+            // add to request history
+            addToHistory(userID, queue);
+          }
         }
       }
     }

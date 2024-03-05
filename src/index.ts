@@ -20,7 +20,6 @@ import { useBot } from "./libs/bot";
     .use(StealthPlugin())
     .launch({
       // headless: false,
-      headless: "new",
       ignoreDefaultArgs: ["--mute-audio"],
       args: [
         '--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"',
@@ -96,6 +95,8 @@ import { useBot } from "./libs/bot";
   globalThis.votePlayNextUsers = [];
   globalThis.votePlayNextMinimum = 5;
   globalThis.votePlayNextCount = 0;
+  globalThis.requestLimitDuration = 30;
+  globalThis.requestHistory = {};
   globalThis.statusPlay = "idle";
 
   // get queue if exist
@@ -126,7 +127,14 @@ import { useBot } from "./libs/bot";
   globalThis.currentTitle = null;
   globalThis.newTitle = null;
 
-  bot.launch();
+  bot.launch(
+    {
+      dropPendingUpdates: true,
+    },
+    () => {
+      console.log("Bot Player Running");
+    },
+  );
 
   // Enable graceful stop
   process.once("SIGINT", async () => {

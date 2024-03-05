@@ -1,8 +1,16 @@
 /* eslint-disable no-var */
 import { Queue } from "@prisma/client";
+import { Dayjs } from "dayjs";
 import { Browser, Page } from "puppeteer";
 import { Telegraf } from "telegraf";
 export {};
+
+export type RequestHistory = {
+  lastRequest: Dayjs;
+  suspendUntil: Dayjs;
+  histories: Queue[];
+};
+
 declare global {
   var playerPage: Page;
   var statusPlay: "playing" | "paused" | "idle";
@@ -16,4 +24,6 @@ declare global {
   var votePlayNextUsers: number[];
   var votePlayNextMinimum: number;
   var votePlayNextCount: number;
+  var requestLimitDuration: number;
+  var requestHistory: Record<number, RequestHistory>;
 }

@@ -1,15 +1,10 @@
 import { PrismaClient, Queue, SearchResult } from "@prisma/client";
 import dayjs, { type Dayjs } from "dayjs";
-// import getYouTubeID from "get-youtube-id";
-// import { YoutubeMeta, getYoutubeMeta } from "./util/youtube";
 
 export const addQueue = async (
   prisma: PrismaClient,
   sr: SearchResult,
-): Promise<[boolean, string]> => {
-  // const meta: YoutubeMeta = await getYoutubeMeta(url);
-  // const musicID: string | null = getYouTubeID(url);
-
+): Promise<{ success: boolean; errorMessage: string; queue: Queue | null }> => {
   const resCount = await prisma.queue.count({
     where: {
       musicID: sr.musicID,
@@ -18,10 +13,14 @@ export const addQueue = async (
   });
 
   if (resCount.valueOf() > 0) {
-    return [false, "the song already in queue"];
+    return {
+      success: false,
+      errorMessage: "the song already in queue",
+      queue: null,
+    };
   }
 
-  await prisma.queue.create({
+  const queue = await prisma.queue.create({
     data: {
       musicID: sr.musicID,
       title: sr.title,
@@ -34,16 +33,17 @@ export const addQueue = async (
     },
   });
 
-  return [true, ""];
+  return {
+    success: true,
+    errorMessage: "",
+    queue: queue,
+  };
 };
 
 export const addToPlayNext = async (
   prisma: PrismaClient,
   sr: SearchResult,
-): Promise<[boolean, string]> => {
-  // const meta: YoutubeMeta = await getYoutubeMeta(url);
-  // const musicID: string | null = getYouTubeID(url);
-
+): Promise<{ success: boolean; errorMessage: string; queue: Queue | null }> => {
   const res = await prisma.queue.findFirst({
     where: {
       playedAt: null,
@@ -60,7 +60,32 @@ export const addToPlayNext = async (
     createdAt = dayjs(res.createdAt).subtract(1, "minute");
   }
 
-  await prisma.queue.create({
+  const existingQueue = await prisma.queue.findFirst({
+    where: {
+      musicID: sr.musicID,
+      playedAt: null,
+    },
+  });
+
+  // current music is already on queue, then move to the top
+  if (existingQueue) {
+    const updatedQueue = await prisma.queue.update({
+      where: {
+        id: existingQueue.id,
+      },
+      data: {
+        createdAt: createdAt.toDate(),
+      },
+    });
+
+    return {
+      success: true,
+      errorMessage: "",
+      queue: updatedQueue,
+    };
+  }
+
+  const queue = await prisma.queue.create({
     data: {
       musicID: sr.musicID,
       title: sr.title,
@@ -74,7 +99,11 @@ export const addToPlayNext = async (
     },
   });
 
-  return [true, ""];
+  return {
+    success: true,
+    errorMessage: "",
+    queue: queue,
+  };
 };
 
 export const getQueues = async (prisma: PrismaClient): Promise<Queue[]> => {
