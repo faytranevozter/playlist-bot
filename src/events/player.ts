@@ -30,6 +30,7 @@ import {
 } from "telegraf/typings/core/types/typegram";
 import { addToHistory, getHistory } from "../func/history";
 import dayjs from "dayjs";
+import { getTelegramUserByID, registerTelegramUser } from "../repository/user";
 
 const prisma = new PrismaClient();
 
@@ -159,7 +160,7 @@ export class Player {
       await ctx.reply(
         queues
           .map((row, i) => {
-            return `${i + 1}. [${row.duration}] ${row.title} - ${row.artist}`;
+            return `${i + 1}. [${row.duration}] ${row.title} - ${row.artist} by <tg-spoiler><a href="tg://user?id=${row.user.id}">user</a></tg-spoiler>`;
           })
           .join("\n"),
         {
@@ -382,7 +383,7 @@ export class Player {
       const userID: number = parseInt(rawData.split(":")[0] || "");
       const clickerID: number = ctx.callbackQuery.from.id;
       if (clickerID !== userID) {
-        await ctx.answerCbQuery("Who TF r u!");
+        await ctx.answerCbQuery("Only requester can do this action!");
       } else {
         // check limit
         const requestHistory = getHistory(userID);
@@ -401,7 +402,25 @@ export class Player {
               `${sr.title} by ${sr.artist} added to queue`,
             );
 
-            const { queue } = await addQueue(prisma, sr);
+            // check user
+            let user = await getTelegramUserByID(prisma, userID);
+            if (!user) {
+              const registerResult = await registerTelegramUser(prisma, {
+                id: userID,
+                username: ctx.callbackQuery.from.username,
+                name: `${ctx.callbackQuery.from.first_name}${ctx.callbackQuery.from.last_name ? ` ${ctx.callbackQuery.from.last_name}` : ""}`,
+                verified: false,
+                banned: false,
+              });
+              user = registerResult.user;
+            }
+
+            if (user === null) {
+              await ctx.answerCbQuery("Something went wrong...");
+              return;
+            }
+
+            const { queue } = await addQueue(prisma, sr, user);
             if (queue) {
               // add to request history
               addToHistory(userID, queue);
@@ -426,7 +445,7 @@ export class Player {
     const userID: number = parseInt(rawData.split(":")[0] || "");
     const clickerID: number = ctx.callbackQuery.from.id;
     if (clickerID !== userID) {
-      await ctx.answerCbQuery("Who TF r u!");
+      await ctx.answerCbQuery("Only requester can do this action!");
     } else {
       // check limit
       const requestHistory = getHistory(userID);
@@ -445,7 +464,25 @@ export class Player {
             `${sr.title} by ${sr.artist} added to play next`,
           );
 
-          const { queue } = await addToPlayNext(prisma, sr);
+          // check user
+          let user = await getTelegramUserByID(prisma, userID);
+          if (!user) {
+            const registerResult = await registerTelegramUser(prisma, {
+              id: userID,
+              username: ctx.callbackQuery.from.username,
+              name: `${ctx.callbackQuery.from.first_name}${ctx.callbackQuery.from.last_name ? ` ${ctx.callbackQuery.from.last_name}` : ""}`,
+              verified: false,
+              banned: false,
+            });
+            user = registerResult.user;
+          }
+
+          if (user === null) {
+            await ctx.answerCbQuery("Something went wrong...");
+            return;
+          }
+
+          const { queue } = await addToPlayNext(prisma, sr, user);
           if (queue) {
             // add to request history
             addToHistory(userID, queue);
@@ -466,7 +503,7 @@ export class Player {
     const userID: number = parseInt(rawData.split(":")[0] || "");
     const clickerID: number = ctx.callbackQuery.from.id;
     if (clickerID !== userID) {
-      await ctx.answerCbQuery("Who TF r u!");
+      await ctx.answerCbQuery("Only requester can do this action!");
     } else {
       await ctx.answerCbQuery("Canceling...");
       await ctx.editMessageText("Canceled");

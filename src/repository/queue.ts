@@ -1,9 +1,15 @@
-import { PrismaClient, Queue, SearchResult } from "@prisma/client";
+import {
+  PrismaClient,
+  Queue,
+  SearchResult,
+  TelegramUser,
+} from "@prisma/client";
 import dayjs, { type Dayjs } from "dayjs";
 
 export const addQueue = async (
   prisma: PrismaClient,
   sr: SearchResult,
+  user: TelegramUser,
 ): Promise<{ success: boolean; errorMessage: string; queue: Queue | null }> => {
   const resCount = await prisma.queue.count({
     where: {
@@ -30,6 +36,7 @@ export const addQueue = async (
       duration: sr.duration,
       duration_second: sr.duration_second,
       total_play: sr.total_play,
+      telegramUserID: user.id,
     },
   });
 
@@ -43,6 +50,7 @@ export const addQueue = async (
 export const addToPlayNext = async (
   prisma: PrismaClient,
   sr: SearchResult,
+  user: TelegramUser,
 ): Promise<{ success: boolean; errorMessage: string; queue: Queue | null }> => {
   const res = await prisma.queue.findFirst({
     where: {
@@ -95,6 +103,7 @@ export const addToPlayNext = async (
       duration: sr.duration,
       duration_second: sr.duration_second,
       total_play: sr.total_play,
+      telegramUserID: user.id,
       createdAt: createdAt.toDate(),
     },
   });
@@ -106,7 +115,9 @@ export const addToPlayNext = async (
   };
 };
 
-export const getQueues = async (prisma: PrismaClient): Promise<Queue[]> => {
+export const getQueues = async (
+  prisma: PrismaClient,
+): Promise<(Queue & { user: TelegramUser })[]> => {
   const res = await prisma.queue.findMany({
     where: {
       playedAt: null,
@@ -116,6 +127,9 @@ export const getQueues = async (prisma: PrismaClient): Promise<Queue[]> => {
         createdAt: "asc",
       },
     ],
+    include: {
+      user: true,
+    },
   });
 
   return res;

@@ -9,7 +9,7 @@
     "build": "pnpm db:generate && rimraf build && pnpm lint && swc ./src -d build",
     "build:watch": "swc ./src -d build -w",
     "prepare": "husky install",
-    "make:migration": "prisma migrate dev --name",
+    "make:migration": "prisma format && prisma migrate dev --name",
     "db:migrate": "prisma db push",
     "db:generate": "prisma generate",
     "start": "node build/index.js"

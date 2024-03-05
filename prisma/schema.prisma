@@ -8,20 +8,22 @@ datasource db {
 }
 
 model Queue {
-  id              Int       @id @default(autoincrement())
+  id              Int          @id @default(autoincrement())
   musicID         String
   title           String
   artist          String
   thumbnail       String
   album           String?
   duration        String
-  duration_second Int       @default(0)
+  duration_second Int          @default(0)
   total_play      String
   playedAt        DateTime?
   finishedAt      DateTime?
-  isPlaying       Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @default(now())
+  isPlaying       Boolean      @default(false)
+  user            TelegramUser @relation(fields: [telegramUserID], references: [id])
+  telegramUserID  BigInt
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @default(now())
   year            String?
 }
 
@@ -49,3 +51,13 @@ model Subscriber {
   updatedAt DateTime @default(now())
 }
 
+model TelegramUser {
+  id         BigInt   @id @default(autoincrement())
+  username   String?
+  name       String
+  isVerified Boolean  @default(false)
+  isBanned   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now())
+  Queue      Queue[]
+}
