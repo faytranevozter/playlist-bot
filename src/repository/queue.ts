@@ -1,4 +1,5 @@
 import {
+  Prisma,
   PrismaClient,
   Queue,
   SearchResult,
@@ -117,7 +118,7 @@ export const addToPlayNext = async (
 
 export const getQueues = async (
   prisma: PrismaClient,
-): Promise<(Queue & { user: TelegramUser })[]> => {
+): Promise<Prisma.QueueGetPayload<{ include: { user: true } }>[]> => {
   const res = await prisma.queue.findMany({
     where: {
       playedAt: null,
