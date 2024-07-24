@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "eslint ./src",
     "dev": "pnpm build && run-p build:watch start",
-    "build": "pnpm db:generate && rimraf build && pnpm lint && swc ./src -d build",
+    "build": "pnpm db:generate && rimraf build && pnpm lint && swc ./src -d build && cp -r ./adblockchrome build/adblockchrome",
     "build:watch": "swc ./src -d build -w",
     "prepare": "husky install",
     "make:migration": "prisma format && prisma migrate dev --name",
@@ -21,7 +21,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@cliqz/adblocker-puppeteer": "^1.26.15",
     "@prisma/client": "5.8.1",
     "dayjs": "^1.11.10",
     "dotenv": "^16.3.1",

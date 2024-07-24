@@ -1,10 +1,9 @@
 import puppeteer from "puppeteer-extra";
 import { PrismaClient } from "@prisma/client";
 import { initCookies } from "./func/cookies";
-import Adblocker from "puppeteer-extra-plugin-adblocker";
+// import Adblocker from "puppeteer-extra-plugin-adblocker";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { Browser, Page } from "puppeteer";
-import { PuppeteerBlocker } from "@cliqz/adblocker-puppeteer";
 
 import { getQueue } from "./repository/queue";
 
@@ -14,14 +13,23 @@ import { useBot } from "./libs/bot";
 (async () => {
   const prisma = new PrismaClient();
 
+  const extPath = "./adblockchrome";
+
   // Launch the browser
   const browser: Browser = await puppeteer
-    .use(Adblocker({ blockTrackers: true }))
+    // .use(
+    //   Adblocker({
+    //     interceptResolutionPriority: DEFAULT_INTERCEPT_RESOLUTION_PRIORITY,
+    //     blockTrackers: true,
+    //   }),
+    // )
     .use(StealthPlugin())
     .launch({
-      // headless: false,
+      headless: true,
       ignoreDefaultArgs: ["--mute-audio"],
       args: [
+        `--disable-extensions-except=${extPath}`,
+        `--load-extension=${extPath}`,
         '--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:86.0) Gecko/20100101 Firefox/86.0"',
         "--autoplay-policy=no-user-gesture-required",
         "--autoplay-policy=user-gesture-required",
@@ -63,13 +71,15 @@ import { useBot } from "./libs/bot";
       defaultViewport: null,
     });
 
+  // wait until all tabs open
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+
+  // close second tab
+  await browser.pages().then((pages) => pages[1].close());
+
   // get pages
   const pages: Page[] = await browser.pages();
   globalThis.playerPage = pages[0];
-
-  PuppeteerBlocker.fromPrebuiltAdsAndTracking(fetch).then((blocker) => {
-    blocker.enableBlockingInPage(playerPage);
-  });
 
   // init cookies
   initCookies();
@@ -95,7 +105,7 @@ import { useBot } from "./libs/bot";
   globalThis.votePlayNextUsers = [];
   globalThis.votePlayNextMinimum = 5;
   globalThis.votePlayNextCount = 0;
-  globalThis.requestLimitDuration = 30;
+  globalThis.requestLimitDuration = 90;
   globalThis.requestHistory = {};
   globalThis.statusPlay = "idle";
 
@@ -114,6 +124,7 @@ import { useBot } from "./libs/bot";
       duration: "1:22",
       duration_second: 82,
       total_play: "1.3M plays",
+      telegramUserID: BigInt(0),
       playedAt: null,
       finishedAt: null,
       isPlaying: false,
