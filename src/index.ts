@@ -71,11 +71,17 @@ import { useBot } from "./libs/bot";
       defaultViewport: null,
     });
 
-  // wait until all tabs open
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-
-  // close second tab
-  await browser.pages().then((pages) => pages[1].close());
+  await new Promise((resolve) => {
+    const timerClosePage = setInterval(async () => {
+      // close second tab (adblocker)
+      const pages = await browser.pages();
+      if (pages.length > 1) {
+        pages[1].close();
+        clearInterval(timerClosePage);
+        resolve(true);
+      }
+    }, 3000);
+  });
 
   // get pages
   const pages: Page[] = await browser.pages();
